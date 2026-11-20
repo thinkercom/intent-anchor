@@ -19,6 +19,8 @@ export interface Reward {
   label: string
   category: string
   claimed: boolean
+  // 首次达成条件的时刻：达成即视为「已解锁」，之后即使连续天数中断也仍可兑现
+  unlockedAt?: string
   // 为未来的「推荐 Agent」预留字段
   mood?: string
   satisfaction?: number

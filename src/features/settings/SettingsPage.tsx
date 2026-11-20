@@ -1,9 +1,33 @@
 import { useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowLeft, Plus, Trash2, Download, Upload, RotateCcw, Info, Smartphone, Mail, Link2, Unlink } from 'lucide-react'
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Download,
+  Upload,
+  RotateCcw,
+  Info,
+  Smartphone,
+  Mail,
+  Link2,
+  Unlink,
+  ShieldAlert,
+  ShieldCheck,
+  Loader2,
+} from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import type { AppData } from '../../store/types'
-import { exportData, downloadJson, parseImport } from '../../lib/exportImport'
+import { exportData, parseImport, saveBackupFile, backupFilename } from '../../lib/exportImport'
+import {
+  useBackupStatus,
+  summarizeData,
+  markExported,
+  markImported,
+  resetBackupMeta,
+} from '../../lib/backup'
+import type { BackupStatus } from '../../lib/backup'
 import { signOut, unbindWechat } from '../../lib/cloud'
 import { isCloudEnabled, isExternal } from '../../lib/cloudConfig'
 import { refreshFromCloud } from '../../lib/syncManager'
@@ -24,6 +48,8 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
   const store = useAppStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState('')
+  const backup = useBackupStatus()
+  const [exporting, setExporting] = useState(false)
 
   // iOS 上「添加到主屏幕」后数据更稳：Safari 标签页长期不访问可能被系统清理。
   const isIOS =
@@ -34,15 +60,17 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
     window.matchMedia('(display-mode: standalone)').matches
   const showHomeTip = isIOS && !isStandalone
 
-  const flash = (msg: string) => {
+  const toastTimer = useRef<number | null>(null)
+  const flash = (msg: string, ms = 2400) => {
     setToast(msg)
-    window.setTimeout(() => setToast(''), 2200)
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(''), ms)
   }
 
   // 提交数据后延迟回封面：先让数据变更在当前页完成渲染（不触发 exit），
   // 再切视图，使本页 exit 动画能正常完成并卸载，避免页面残留拦截点击。
-  const commitAndReturn = () => {
-    window.setTimeout(() => onDataApplied(), 420)
+  const commitAndReturn = (delay = 420) => {
+    window.setTimeout(() => onDataApplied(), delay)
   }
 
   // ---- 习惯 ----
@@ -71,7 +99,8 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
   const [newPreset, setNewPreset] = useState('')
 
   // ---- 数据 ----
-  const handleExport = () => {
+  const handleExport = async () => {
+    if (exporting) return
     const data: AppData = {
       schemaVersion: store.schemaVersion,
       intent: store.intent,
@@ -82,27 +111,59 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
       rewards: store.rewards,
       telemetry: store.telemetry,
     }
-    const fname = `intent-anchor-${new Date().toISOString().slice(0, 10)}.json`
-    downloadJson(fname, exportData(data))
-    flash('备份已下载')
+    const count = summarizeData(data).checkinCount
+    setExporting(true)
+    try {
+      const result = await saveBackupFile(backupFilename(), exportData(data))
+      if (result === 'cancelled') return
+      markExported(count)
+      flash(
+        result === 'shared'
+          ? '备份已保存'
+          : isIOS
+            ? '已下载，在「文件」App 的下载里'
+            : '备份已下载',
+        3200,
+      )
+    } catch (e) {
+      flash(e instanceof Error ? e.message : '导出失败', 3600)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleImport = async (file: File) => {
     try {
       const text = await file.text()
-      const data = parseImport(text)
-      store.replaceAllData(data)
-      flash('导入成功，数据已覆盖')
-      commitAndReturn()
+      const bundle = parseImport(text)
+      const when = bundle.exportedAt ? format(parseISO(bundle.exportedAt), 'M 月 d 日 HH:mm') : ''
+      const size = summarizeData(bundle.data)
+      const ok = window.confirm(
+        `即将用这份备份${when ? `（${when} 导出）` : ''}覆盖当前所有记录。\n\n` +
+          `备份内容：${size.habitCount} 个习惯 · ${size.dayCount} 天记录 · ${size.checkinCount} 条打卡\n\n` +
+          `当前数据会被替换且不可撤销，建议先导出一次现在的数据。确定继续吗？`,
+      )
+      if (!ok) return
+      store.replaceAllData(bundle.data)
+      markImported(size.checkinCount)
+      flash('导入成功，数据已恢复', 2600)
+      commitAndReturn(2400)
     } catch (e) {
-      flash(e instanceof Error ? e.message : '导入失败')
+      flash(e instanceof Error ? e.message : '导入失败', 3600)
+    } finally {
+      if (fileRef.current) fileRef.current.value = ''
     }
-    if (fileRef.current) fileRef.current.value = ''
   }
 
   const handleReset = () => {
-    if (window.confirm('确定清空所有数据并恢复默认？此操作不可撤销，建议先导出备份。')) {
+    if (
+      window.confirm(
+        '确定清空所有数据并恢复默认？此操作不可撤销，建议先导出备份。' +
+          (backup.summary.checkinCount > 0 ? `\n\n当前有 ${backup.summary.checkinCount} 条打卡记录会被删除。` : ''),
+      )
+    ) {
       store.resetAll()
+      resetBackupMeta()
       flash('已重置')
       commitAndReturn()
     }
@@ -168,6 +229,26 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
         <span className="w-8" />
       </div>
 
+      {/* 备份提醒：任意 tab 下都能看到，点击直接跳到数据页 */}
+      {backup.needsAttention && (
+        <motion.button
+          onClick={() => setTab('data')}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileTap={{ scale: 0.98 }}
+          className="mx-5 mb-3 flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px]"
+          style={{
+            background: 'var(--warn-bg)',
+            border: '1px solid var(--warn-border)',
+            color: 'var(--warn-fg)',
+          }}
+        >
+          <ShieldAlert size={13} className="shrink-0" />
+          <span className="flex-1 leading-snug">{attentionText(backup)}，建议现在导出一份</span>
+          <span className="shrink-0 opacity-80">去备份 ›</span>
+        </motion.button>
+      )}
+
       {/* Tab */}
       <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto px-5">
         {([
@@ -206,7 +287,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
               <TextInput value={newHabit} onChange={setNewHabit} onEnter={addHabit} placeholder="新习惯名称…" />
               <PrimaryBtn onClick={addHabit}><Plus size={16} />添加</PrimaryBtn>
             </div>
-            <Hint>第一版建议 5 个以内。删除为软删除，不影响历史连续天数。</Hint>
+            <Hint>第一版建议 5 个以内。删除为软删除，不影响历史连续天数。顺序在习惯页长按拖动调整。</Hint>
           </div>
         )}
 
@@ -283,6 +364,82 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
 
         {tab === 'data' && (
           <div className="flex flex-col gap-3">
+            {/* 备份卡放在最前：这是数据安全最要紧的一件事 */}
+            <SectionTitle>数据备份</SectionTitle>
+            <div
+              className="rounded-2xl p-4"
+              style={{
+                background: 'var(--card-bg)',
+                border: `1px solid ${backup.needsAttention ? 'var(--warn-border)' : 'var(--card-border)'}`,
+              }}
+            >
+              <div className="mb-1 flex items-center gap-2">
+                {backup.needsAttention ? (
+                  <ShieldAlert size={15} style={{ color: 'var(--warn-fg)' }} className="shrink-0" />
+                ) : (
+                  <ShieldCheck size={15} style={{ color: 'var(--accent)' }} className="shrink-0" />
+                )}
+                <span
+                  className="flex-1 text-sm"
+                  style={{ color: backup.needsAttention ? 'var(--warn-fg)' : 'var(--fg)' }}
+                >
+                  {backupTitle(backup)}
+                </span>
+                {backup.exportCount > 0 && (
+                  <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>
+                    已备份 {backup.exportCount} 次
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                {backupDesc(backup, isCloudEnabled)}
+              </p>
+
+              <div
+                className="my-3 grid grid-cols-3 gap-2 rounded-xl px-3 py-2.5"
+                style={{ background: 'var(--glass)', border: '1px solid var(--card-border)' }}
+              >
+                <MiniStat label="习惯" value={`${backup.summary.habitCount}`} />
+                <MiniStat label="记录天数" value={`${backup.summary.dayCount}`} />
+                <MiniStat label="打卡" value={`${backup.summary.checkinCount}`} />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm disabled:opacity-70"
+                  style={{ background: 'var(--accent)', color: 'var(--bg)' }}
+                >
+                  {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  {exporting ? '导出中…' : '导出备份'}
+                </button>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm"
+                  style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg)' }}
+                >
+                  <Upload size={16} />导入备份
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])}
+                />
+              </div>
+
+              <p className="mt-2.5 flex items-start gap-1.5 text-[10px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                <Info size={11} className="mt-0.5 shrink-0" />
+                <span>
+                  {isIOS
+                    ? '导出会弹出系统分享面板：选「存储到文件」可存进 iCloud 或“我的 iPhone”，也可以直接发到微信收藏。'
+                    : '备份是一个 JSON 文件，存到网盘、邮箱或微信收藏都行。导入会覆盖当前全部记录。'}
+                </span>
+              </p>
+            </div>
+
             {!isCloudEnabled ? (
               <>
                 <SectionTitle>数据存储</SectionTitle>
@@ -382,22 +539,6 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
               </>
             )}
 
-            <SectionTitle>数据备份</SectionTitle>
-            <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-              <p className="mb-3 text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                {isCloudEnabled
-                  ? '登录后会云端同步；未登录时清除浏览器数据会丢失记录，可定期导出 JSON 备份。'
-                  : '数据只在这台设备上。清除浏览器数据、删除桌面图标或换手机会丢失记录，建议定期导出一份 JSON 存到网盘或微信收藏。'}
-              </p>
-              <div className="flex gap-2">
-                <PrimaryBtn onClick={handleExport}><Download size={16} />导出备份</PrimaryBtn>
-                <button onClick={() => fileRef.current?.click()} className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg)' }}>
-                  <Upload size={16} />导入备份
-                </button>
-                <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])} />
-              </div>
-            </div>
-
             <SectionTitle>使用统计</SectionTitle>
             <div className="grid grid-cols-2 gap-2.5">
               <Stat label="累计打开" value={`${store.telemetry.openCount} 次`} />
@@ -439,6 +580,57 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <div className="mb-1 text-[11px] tracking-[0.15em]" style={{ color: 'var(--fg-muted)' }}>{children}</div>
 }
+
+// ---- 备份文案 ----
+
+function fmtBackupTime(iso: string | null): string {
+  if (!iso) return ''
+  try {
+    const d = parseISO(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    return format(d, 'M 月 d 日 HH:mm')
+  } catch {
+    return ''
+  }
+}
+
+function backupTitle(status: BackupStatus): string {
+  if (status.level === 'empty') return '还没有记录'
+  if (!status.lastExportAt) return '还没有备份过'
+  if (status.needsAttention) return `${status.daysSince} 天没备份了`
+  return '数据已备份'
+}
+
+function backupDesc(status: BackupStatus, cloud: boolean): string {
+  if (status.level === 'empty') return '开始打卡之后，这里会提醒你什么时候该备份。'
+  if (!status.lastExportAt) {
+    return (
+      (cloud ? '未登录时数据只在这台设备上，' : '数据只在这台设备上。') +
+      '清除浏览器数据、删除桌面图标或换手机会全部丢失，建议现在导出第一份。'
+    )
+  }
+  if (status.needsAttention) {
+    return `上次备份是 ${fmtBackupTime(status.lastExportAt)}，之后新增了 ${status.unbackedCheckins} 条打卡记录。`
+  }
+  return status.unbackedCheckins > 0
+    ? `${fmtBackupTime(status.lastExportAt)} 备份，之后另有 ${status.unbackedCheckins} 条新记录，攒几天再导出一份就行。`
+    : `${fmtBackupTime(status.lastExportAt)} 备份，数据已是最新。`
+}
+
+function attentionText(status: BackupStatus): string {
+  if (!status.lastExportAt) return `已经连续记录 ${status.summary.dayCount} 天，还没备份过`
+  return `已经 ${status.daysSince} 天没备份`
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-center">
+      <div className="text-sm" style={{ color: 'var(--fg)' }}>{value}</div>
+      <div className="mt-0.5 text-[10px]" style={{ color: 'var(--fg-muted)' }}>{label}</div>
+    </div>
+  )
+}
+
 function Row({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 rounded-2xl px-4 py-3" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>

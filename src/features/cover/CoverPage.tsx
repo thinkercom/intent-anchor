@@ -3,7 +3,8 @@ import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { Moon, Sun } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import { getLogicalDateKey, computeStreak } from '../../lib/date'
+import { computeStreak } from '../../lib/date'
+import { useLogicalToday } from '../../lib/useLogicalToday'
 import { HEADLINE, promptForDate } from '../../lib/prompts'
 import type { Theme, ThemeMode } from '../../lib/useTheme'
 import type { ViewName } from '../../store/types'
@@ -23,10 +24,10 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
   const intent = useAppStore((s) => s.intent)
   const setView = useAppStore((s) => s.setView)
 
-  const todayKey = getLogicalDateKey()
+  const todayKey = useLogicalToday()
   const prompt = promptForDate(todayKey, customPrompts)
   const activeIds = habits.filter((h) => !h.archived).map((h) => h.id)
-  const streak = computeStreak(checkins, activeIds, todayKey)
+  const streak = computeStreak(checkins, habits, todayKey)
   const todayLabel = format(new Date(), 'M月d日 EEEE', { locale: zhCN })
 
   // 打断回归：当天已设意图但未全部完成时，显示「你刚才要做的是 X」

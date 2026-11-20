@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AppData, Habit, Reward, ViewName } from './types'
+import { SCHEMA_VERSION, STORE_KEY } from './schema'
+import { normalizeAppData } from '../lib/exportImport'
 import { getLogicalDateKey } from '../lib/date'
-
-const SCHEMA_VERSION = 1
 
 const DEFAULT_HABITS: Habit[] = [
   { id: 'h1', name: '晨间伸展', schedule: 'daily', createdAt: '2026-11-19', archived: false },
@@ -67,12 +67,18 @@ interface AppActions {
   addHabit: (name: string) => void
   renameHabit: (id: string, name: string) => void
   removeHabit: (id: string) => void
+  /** 按传入的启用习惯 id 顺序重排（用于长按拖动排序）；已归档的习惯排在末尾 */
+  setHabitOrder: (orderedActiveIds: string[]) => void
   toggleCheckin: (habitId: string) => void
+  /** 幂等设置某习惯某天的打卡状态（撤销用，避免与实际状态不一致） */
+  setCheckin: (habitId: string, checked: boolean, dateKey?: string) => void
   // 奖励
   addReward: (reward: Omit<Reward, 'id' | 'claimed'>) => void
   updateReward: (id: string, patch: Partial<Omit<Reward, 'id' | 'claimed'>>) => void
   removeReward: (id: string) => void
   claimReward: (rewardId: string, mood?: string, satisfaction?: number) => void
+  /** 记录「首次达成」时刻；已记录过的不会覆盖 */
+  markRewardUnlocked: (rewardId: string) => void
   // 埋点
   recordOpen: () => void
   recordEnter: (durationMs: number) => void
@@ -106,7 +112,8 @@ export const useAppStore = create<AppStore>()(
       // ---- 云账号与同步 ----
       setAuthUser: (user) => set({ authUser: user }),
       setSyncStatus: (status, message = '') => set({ syncStatus: status, syncError: message }),
-      applyRemoteData: (data) => set({ ...data, schemaVersion: SCHEMA_VERSION }),
+      // 云端 / 导入来的数据同样先规范化，避免旧结构或残缺字段直接进 store
+      applyRemoteData: (data) => set({ ...normalizeAppData(data) }),
       getDataSnapshot: () => {
         const s = get()
         return {
@@ -166,17 +173,47 @@ export const useAppStore = create<AppStore>()(
         // 软删除：标记 archived，历史打卡记录保留，避免破坏连续天数计算
         set({ habits: get().habits.map((h) => (h.id === id ? { ...h, archived: true } : h)) })
       },
-      toggleCheckin: (habitId) => {
-        const key = getLogicalDateKey()
-        const checkins = { ...get().checkins }
-        const done = checkins[key] ?? []
-        checkins[key] = done.includes(habitId)
-          ? done.filter((id) => id !== habitId)
-          : [...done, habitId]
+      /**
+       * 拖动排序：按传入的启用习惯 id 顺序重排数组。
+       * 已归档的习惯不参与展示，统一挪到末尾——它们只用于历史连续天数计算，顺序无意义。
+       */
+      setHabitOrder: (orderedActiveIds) => {
+        const current = get().habits
+        const byId = new Map(current.map((h) => [h.id, h]))
+        const ordered: Habit[] = []
+        for (const id of orderedActiveIds) {
+          const h = byId.get(id)
+          if (h && !h.archived) {
+            ordered.push(h)
+            byId.delete(id)
+          }
+        }
+        const archived = current.filter((h) => h.archived)
+        // 数量不一致（例如拖拽期间删了习惯）时保持原样，避免静默丢数据
+        if (ordered.length + archived.length !== current.length) return
+        set({ habits: [...ordered, ...archived] })
+      },
+      setCheckin: (habitId, checked, dateKey) => {
+        const key = dateKey ?? getLogicalDateKey()
+        const before = get().checkins
+        const wasChecked = (before[key] ?? []).includes(habitId)
+        if (wasChecked === checked) return
+        const checkins = { ...before }
+        const done = new Set(checkins[key] ?? [])
+        if (checked) done.add(habitId)
+        else done.delete(habitId)
+        // 空的一天直接删掉 key，避免「记录天数」被空白日期夸大
+        if (done.size) checkins[key] = [...done]
+        else delete checkins[key]
         set({
           checkins,
           telemetry: { ...get().telemetry, checkinActions: get().telemetry.checkinActions + 1 },
         })
+      },
+      toggleCheckin: (habitId) => {
+        const key = getLogicalDateKey()
+        const done = get().checkins[key] ?? []
+        get().setCheckin(habitId, !done.includes(habitId), key)
       },
 
       // ---- 奖励 ----
@@ -188,12 +225,22 @@ export const useAppStore = create<AppStore>()(
         set({ rewards: get().rewards.map((r) => (r.id === id ? { ...r, ...patch } : r)) }),
       removeReward: (id) => set({ rewards: get().rewards.filter((r) => r.id !== id) }),
       claimReward: (rewardId, mood, satisfaction) => {
+        const now = new Date().toISOString()
         const rewards = get().rewards.map((r) =>
           r.id === rewardId
-            ? { ...r, claimed: true, claimedAt: new Date().toISOString(), mood, satisfaction }
+            ? { ...r, claimed: true, claimedAt: now, unlockedAt: r.unlockedAt ?? now, mood, satisfaction }
             : r,
         )
         set({ rewards })
+      },
+      markRewardUnlocked: (rewardId) => {
+        if (get().rewards.find((r) => r.id === rewardId)?.unlockedAt) return
+        const now = new Date().toISOString()
+        set({
+          rewards: get().rewards.map((r) =>
+            r.id === rewardId && !r.unlockedAt ? { ...r, unlockedAt: now } : r,
+          ),
+        })
       },
 
       // ---- 埋点 ----
@@ -218,11 +265,11 @@ export const useAppStore = create<AppStore>()(
       // 注意：这里只提交数据、不切 view。
       // 视图切换由调用方在提交后延迟触发，避免「全量替换数据 + 切视图」同一批发生，
       // 导致正在 exit 的页面因数据突变重渲染、退出动画卡死（页面残留在 DOM 拦截点击）。
-      replaceAllData: (data) => set({ ...data, schemaVersion: SCHEMA_VERSION }),
+      replaceAllData: (data) => set({ ...normalizeAppData(data) }),
       resetAll: () => set(initialData()),
     }),
     {
-      name: 'intent-anchor-store',
+      name: STORE_KEY,
       version: SCHEMA_VERSION,
       partialize: (state) => ({
         schemaVersion: state.schemaVersion,
@@ -234,6 +281,43 @@ export const useAppStore = create<AppStore>()(
         rewards: state.rewards,
         telemetry: state.telemetry,
       }),
+      /**
+       * 版本不一致时调用（不提供的话 zustand 会直接丢弃旧数据）。
+       * 目前只有 v1，结构变化统一由下面的 merge 做字段级兜底；
+       * 将来若某版本需要真正的字段改写（重命名/拆分），在这里按 fromVersion 分支处理。
+       */
+      migrate: (persisted, fromVersion) => {
+        if (fromVersion !== SCHEMA_VERSION) {
+          console.info(`[store] 数据从 v${fromVersion} 迁移到 v${SCHEMA_VERSION}`)
+        }
+        return persisted as AppStore
+      },
+      /**
+       * 每次启动读到存储都会走这里：先规范化再合并。
+       * 好处是损坏/残缺/旧结构的数据不会进入内存，页面不会因为脏数据白屏。
+       *
+       * 两个坑：
+       * 1. 没有存档时 persist 也会调 merge（persisted 为 undefined），
+       *    直接 normalize 会得到空数组，把默认习惯/奖励清空 —— 新设备首次打开就是空页面。
+       * 2. 存档里缺某个字段时，也应该沿用默认值，而不是被空数组顶掉。
+       */
+      merge: (persisted, current) => {
+        const raw = persisted as Record<string, unknown> | undefined
+        if (!raw || typeof raw !== 'object' || Object.keys(raw).length === 0) return current
+        const data = normalizeAppData(raw)
+        const has = (key: keyof AppData) => raw[key] !== undefined
+        return {
+          ...current,
+          ...data,
+          intent: has('intent') ? data.intent : current.intent,
+          intentPresets: has('intentPresets') ? data.intentPresets : current.intentPresets,
+          customPrompts: has('customPrompts') ? data.customPrompts : current.customPrompts,
+          habits: has('habits') ? data.habits : current.habits,
+          checkins: has('checkins') ? data.checkins : current.checkins,
+          rewards: has('rewards') ? data.rewards : current.rewards,
+          telemetry: has('telemetry') ? data.telemetry : current.telemetry,
+        }
+      },
     },
   ),
 )

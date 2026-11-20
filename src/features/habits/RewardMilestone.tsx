@@ -24,13 +24,15 @@ export function RewardMilestone({ streak, reward, claimedTotal, onClaim }: Props
         className="mt-6 rounded-2xl px-5 py-4 text-center text-sm"
         style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--fg-muted)' }}
       >
-        所有奖励已解锁 🎉 去设置里添加新目标吧
+        奖励都兑现完了 🎉 去设置里加个新目标吧
       </div>
     )
   }
 
   const progress = rewardProgress(streak, reward)
   const claimable = canClaim(streak, reward)
+  // 已解锁但当前连续天数掉下来了：资格还在，只是不再喊「你刚达成」
+  const unlockedBefore = !!reward.unlockedAt && streak < reward.threshold
 
   const handleClaimClick = () => {
     if (!claimable) return
@@ -52,7 +54,7 @@ export function RewardMilestone({ streak, reward, claimedTotal, onClaim }: Props
       >
         <div className="mb-3 flex items-center gap-2 text-xs tracking-wider" style={{ color: 'var(--fg-muted)' }}>
           <Gift size={14} />
-          <span>下一个奖励 · 已解锁 {claimedTotal} 个</span>
+          <span>下一个奖励 · 已兑现 {claimedTotal} 个</span>
         </div>
 
         <div className="flex items-baseline justify-between">
@@ -60,7 +62,7 @@ export function RewardMilestone({ streak, reward, claimedTotal, onClaim }: Props
             {reward.label}
           </span>
           <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-            {streak} / {reward.threshold} 天
+            {unlockedBefore ? '已达成 · 待兑现' : `${streak} / ${reward.threshold} 天`}
           </span>
         </div>
 

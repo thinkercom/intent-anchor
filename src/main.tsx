@@ -1,6 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './app/App'
+import { ErrorBoundary } from './app/ErrorBoundary'
+import { recordCrash } from './lib/rescue'
 import './styles/index.css'
 
 /**
@@ -13,6 +15,19 @@ if (navigator.storage?.persist) {
     if (!already) navigator.storage.persist().catch(() => {})
   }).catch(() => {})
 }
+
+/**
+ * 兜底记录非渲染错误：事件处理器、异步 Promise 里抛的异常 ErrorBoundary 抓不到。
+ * 这里只记录（崩溃页能查到），不影响正常页面。
+ */
+window.addEventListener('error', (event) => {
+  // 资源加载失败（img/video/script 404）不是代码崩溃，忽略
+  if (event.target instanceof Element) return
+  recordCrash(event.error ?? new Error(event.message || '未知错误'))
+})
+window.addEventListener('unhandledrejection', (event) => {
+  recordCrash(event.reason)
+})
 
 /**
  * PWA 更新兜底：托管环境里用户常常长时间开着页面，
@@ -39,6 +54,15 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )
+
+// React 已挂载：撤掉 index.html 里的启动兜底卡片（10 秒计时器 + 静态 DOM）
+requestAnimationFrame(() => {
+  const w = window as Window & { __bootTimer?: number }
+  if (w.__bootTimer) window.clearTimeout(w.__bootTimer)
+  document.getElementById('boot-fallback')?.remove()
+})

@@ -1,11 +1,18 @@
-import { motion } from 'motion/react'
-import { ArrowLeft, Settings2, Flame } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, Reorder, motion } from 'motion/react'
+import { ArrowLeft, Settings2, Flame, Plus, Sparkles } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import { getLogicalDateKey, computeStreak, todayProgress } from '../../lib/date'
+import { computeStreak, todayProgress } from '../../lib/date'
+import { useLogicalToday } from '../../lib/useLogicalToday'
 import { nextReward, claimedCount } from '../../lib/rewards'
+import { useBackupStatus } from '../../lib/backup'
 import { HabitItem } from './HabitItem'
 import { IntentEditor } from './IntentEditor'
 import { RewardMilestone } from './RewardMilestone'
+import { UndoToast } from './UndoToast'
+import { FirstRunGuide } from './FirstRunGuide'
+import type { Habit } from '../../store/types'
+import type { UndoInfo } from './UndoToast'
 
 interface Props {
   onBack: () => void
@@ -20,13 +27,17 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
   const rewards = useAppStore((s) => s.rewards)
   const setIntent = useAppStore((s) => s.setIntent)
   const addIntentPreset = useAppStore((s) => s.addIntentPreset)
-  const toggleCheckin = useAppStore((s) => s.toggleCheckin)
+  const setCheckin = useAppStore((s) => s.setCheckin)
+  const setHabitOrder = useAppStore((s) => s.setHabitOrder)
   const claimReward = useAppStore((s) => s.claimReward)
+  const markRewardUnlocked = useAppStore((s) => s.markRewardUnlocked)
+  const backup = useBackupStatus()
 
-  const todayKey = getLogicalDateKey()
+  // 跨过 04:00 会自动换天（页面挂在后台再回来也一样）
+  const todayKey = useLogicalToday()
   const activeHabits = habits.filter((h) => !h.archived)
   const activeIds = activeHabits.map((h) => h.id)
-  const streak = computeStreak(checkins, activeIds, todayKey)
+  const streak = computeStreak(checkins, habits, todayKey)
   const progress = todayProgress(checkins, activeIds, todayKey)
   const doneCount = (checkins[todayKey] ?? []).filter((id) => activeIds.includes(id)).length
   const reward = nextReward(rewards)
@@ -38,6 +49,60 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
         ? intent.text
         : `${intent.text}（昨日）`
       : ''
+
+  // ---- 打卡撤销 ----
+  const [undo, setUndo] = useState<UndoInfo | null>(null)
+  const undoTimerRef = useRef<number | null>(null)
+
+  const clearUndoTimer = () => {
+    if (undoTimerRef.current) {
+      window.clearTimeout(undoTimerRef.current)
+      undoTimerRef.current = null
+    }
+  }
+
+  const handleToggle = (habit: Habit) => {
+    const wasChecked = (checkins[todayKey] ?? []).includes(habit.id)
+    setCheckin(habit.id, !wasChecked, todayKey)
+    setUndo({ id: habit.id, name: habit.name, wasChecked, dateKey: todayKey })
+    clearUndoTimer()
+    undoTimerRef.current = window.setTimeout(() => setUndo(null), 5200)
+  }
+
+  const handleUndo = () => {
+    if (!undo) return
+    // 幂等写回：中途如果又点了别的习惯，也不会把状态搞乱
+    setCheckin(undo.id, undo.wasChecked, undo.dateKey)
+    setUndo(null)
+    clearUndoTimer()
+  }
+
+  useEffect(() => clearUndoTimer, [])
+
+  // ---- 跨天提示 ----
+  const prevDayRef = useRef(todayKey)
+  const [rolled, setRolled] = useState(false)
+  useEffect(() => {
+    if (prevDayRef.current === todayKey) return
+    prevDayRef.current = todayKey
+    setUndo(null)
+    setRolled(true)
+    const t = window.setTimeout(() => setRolled(false), 6000)
+    return () => window.clearTimeout(t)
+  }, [todayKey])
+
+  // ---- 奖励解锁：达成即记录，之后即使断掉也还能兑现 ----
+  useEffect(() => {
+    for (const r of rewards) {
+      if (!r.claimed && !r.unlockedAt && streak >= r.threshold) markRewardUnlocked(r.id)
+    }
+  }, [rewards, streak, markRewardUnlocked])
+
+  const handleReorder = (next: Habit[]) => setHabitOrder(next.map((h) => h.id))
+
+  const checkedToday = checkins[todayKey] ?? []
+  // 引导卡：刚打卡就消失会让人来不及看，留到有 3 天记录后再自动收起
+  const daysRecorded = Object.keys(checkins).length
 
   return (
     <motion.main
@@ -54,8 +119,20 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
           <ArrowLeft size={20} />
         </motion.button>
         <span className="text-sm tracking-[0.2em]" style={{ color: 'var(--fg)' }}>习惯养成</span>
-        <motion.button onClick={onOpenSettings} className="rounded-full p-2" style={{ color: 'var(--fg-muted)' }} whileTap={{ scale: 0.92 }} aria-label="设置">
+        <motion.button
+          onClick={onOpenSettings}
+          className="relative rounded-full p-2"
+          style={{ color: 'var(--fg-muted)' }}
+          whileTap={{ scale: 0.92 }}
+          aria-label={backup.needsAttention ? '设置（有数据备份提醒）' : '设置'}
+        >
           <Settings2 size={19} />
+          {backup.needsAttention && (
+            <span
+              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full"
+              style={{ background: 'var(--warn-fg)' }}
+            />
+          )}
         </motion.button>
       </div>
 
@@ -89,6 +166,22 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
           </div>
         </motion.div>
 
+        {/* 跨天提示：让人知道「今天」已经换了，不是数据丢了 */}
+        <AnimatePresence>
+          {rolled && (
+            <motion.div
+              className="mb-4 flex items-center gap-2 rounded-xl px-3 py-2 text-[11px]"
+              style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg-muted)' }}
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            >
+              <Sparkles size={13} className="shrink-0" />
+              新的一天已开始（凌晨 4 点换日），今日完成已重置
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* 意图设定 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <IntentEditor
@@ -99,25 +192,53 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
           />
         </motion.div>
 
+        {/* 首次使用引导：只在该看到的时候出现一次 */}
+        <FirstRunGuide visible={daysRecorded < 3 && activeHabits.length > 0} />
+
         {/* 习惯列表 */}
         <div className="mb-3 mt-6 flex items-center justify-between px-1">
-          <span className="text-xs tracking-wider" style={{ color: 'var(--fg-muted)' }}>今日习惯 · 轻触打卡</span>
+          <span className="text-xs tracking-wider" style={{ color: 'var(--fg-muted)' }}>
+            今日习惯 · 轻触打卡 · 长按排序
+          </span>
           <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>{Math.round(progress * 100)}%</span>
         </div>
-        <div className="flex flex-col gap-2.5">
-          {activeHabits.map((habit, i) => (
-            <HabitItem
-              key={habit.id}
-              habit={habit}
-              checked={(checkins[todayKey] ?? []).includes(habit.id)}
-              onToggle={() => toggleCheckin(habit.id)}
-              index={i}
-            />
-          ))}
-          {activeHabits.length === 0 && (
-            <p className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>还没有习惯，去设置里添加吧</p>
-          )}
-        </div>
+
+        {activeHabits.length > 0 ? (
+          <Reorder.Group
+            as="div"
+            axis="y"
+            values={activeHabits}
+            onReorder={handleReorder}
+            className="flex flex-col gap-2.5"
+          >
+            {activeHabits.map((habit, i) => (
+              <HabitItem
+                key={habit.id}
+                habit={habit}
+                checked={checkedToday.includes(habit.id)}
+                onToggle={() => handleToggle(habit)}
+                index={i}
+              />
+            ))}
+          </Reorder.Group>
+        ) : (
+          <div
+            className="rounded-2xl px-5 py-6 text-center"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+          >
+            <p className="text-sm" style={{ color: 'var(--fg)' }}>还没有习惯</p>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+              建议先加 3–5 个每天都能做到的小事，比一个大目标更容易坚持。
+            </p>
+            <button
+              onClick={onOpenSettings}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm"
+              style={{ background: 'var(--accent)', color: 'var(--bg)' }}
+            >
+              <Plus size={15} />去添加习惯
+            </button>
+          </div>
+        )}
 
         {/* 奖励里程碑 */}
         <RewardMilestone
@@ -127,6 +248,9 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
           onClaim={claimReward}
         />
       </div>
+
+      {/* 打卡撤销：误触不用去设置里找开关 */}
+      <UndoToast info={undo} onUndo={handleUndo} onDismiss={() => setUndo(null)} />
     </motion.main>
   )
 }

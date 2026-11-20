@@ -1,4 +1,5 @@
 import { format, addDays, differenceInCalendarDays, parseISO } from 'date-fns'
+import type { Habit } from '../store/types'
 
 /** 一天的开始时刻：04:00。凌晨 0-4 点算作前一天。 */
 export const DAY_START_HOUR = 4
@@ -26,32 +27,55 @@ export function prevDateKey(key: string): string {
 
 /**
  * 计算连续天数：从今天（或昨天，若今天尚未全部完成）往回数，
- * 连续「全部习惯完成」的天数。漏一天即中断。
+ * 连续「当天存在的习惯全部完成」的天数。漏一天即中断。
+ *
+ * 边界处理：
+ * - 某天只要求「那天已经存在的习惯」完成，所以今天新加的习惯不会把之前的连续记录清零
+ * - 归档（删除）的习惯不参与，历史记录不会因为删习惯而断掉
+ * - 往前数到最早的习惯创建日就停，不需要看更早的空洞
  *
  * @param checkins 打卡记录
- * @param activeHabitIds 当前启用的习惯 id
+ * @param habits 全部习惯（内部自行过滤归档项）
  * @param todayKey 逻辑今天
  */
 export function computeStreak(
   checkins: Record<string, string[]>,
-  activeHabitIds: string[],
+  habits: Habit[],
   todayKey: string,
 ): number {
-  if (activeHabitIds.length === 0) return 0
+  const list = habits.filter((h) => !h.archived)
+  if (list.length === 0) return 0
+
+  // 最早创建日：往前数到这里就够了（没有 createdAt 的旧数据视为「一直都存在」）
+  const dated = list.map((h) => h.createdAt).filter((d) => !!d)
+  const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : ''
 
   const isComplete = (key: string): boolean => {
+    if (earliest && key < earliest) return false
+    // 该逻辑日已经存在的习惯
+    const existed = list.filter((h) => !h.createdAt || h.createdAt <= key)
+    if (existed.length === 0) return false
     const done = checkins[key] ?? []
-    return activeHabitIds.every((id) => done.includes(id))
+    return existed.every((h) => done.includes(h.id))
   }
 
   // 今天若已完成，从今天开始数；否则从昨天开始数（今天还有机会）
   let cursor = isComplete(todayKey) ? todayKey : prevDateKey(todayKey)
   let streak = 0
-  while (isComplete(cursor)) {
+  // 上限只是防御脏数据造成的死循环（10 年）
+  while (streak < 3660 && isComplete(cursor)) {
     streak += 1
     cursor = prevDateKey(cursor)
   }
   return streak
+}
+
+/** 下一个逻辑日 04:00 的时刻（用于「跨天自动刷新」的定时器） */
+export function nextDayStart(now: Date = new Date()): Date {
+  const d = new Date(now)
+  d.setHours(DAY_START_HOUR, 0, 0, 0)
+  if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1)
+  return d
 }
 
 /** 今日完成度 0-1 */
