@@ -9,6 +9,7 @@ import {
   getPendingWechatBind,
 } from '../../lib/cloud'
 import type { AuthUser } from '../../store/useAppStore'
+import { isExternal } from '../../lib/cloudConfig'
 
 interface Props {
   mode: 'login' | 'bind'
@@ -208,7 +209,7 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
             </>
           )}
 
-          {!isBind && (
+          {!isBind && !isExternal && (
             <>
               <div className="my-4 flex items-center gap-3" style={{ color: 'var(--fg-muted)' }}>
                 <div className="h-px flex-1" style={{ background: 'var(--card-border)' }} />

@@ -1,5 +1,6 @@
 import { cloud } from './cloud'
-import { isCloudEnabled } from './cloudConfig'
+import { isCloudEnabled, isExternal } from './cloudConfig'
+import { extFetchState, extSaveState } from './externalApi'
 import type { AppData } from '../store/types'
 
 const TABLE = 'user_state'
@@ -12,11 +13,12 @@ interface Row {
   updated_at: string
 }
 
-/** 读取主账户的云端存档（RLS 保证只能读到自己 master_key 的） */
+/** 读取主账户的云端存档（身份隔离：服务端按会话推导 master_key） */
 export async function fetchRemote(
   masterKey: string
 ): Promise<{ data: AppData | null; updatedAt: string | null; error?: string }> {
   if (!isCloudEnabled) return { data: null, updatedAt: null }
+  if (isExternal) return extFetchState()
   const db = cloud.database as any
   const { data, error } = await db
     .from(TABLE)
@@ -30,7 +32,7 @@ export async function fetchRemote(
 }
 
 /**
- * 首次登录：把本地数据上传为云端存档（归属 masterKey）。
+ * 首次登录：把本地数据上传为云端存档。
  * 若云端已有记录（换设备 / 换登录方式），返回远端数据让本地采用。
  */
 export async function uploadLocal(
@@ -42,8 +44,11 @@ export async function uploadLocal(
   if (existing.error) return { remote: null, error: existing.error }
   if (existing.data) return { remote: existing.data }
 
+  if (isExternal) {
+    const { error } = await extSaveState(local)
+    return error ? { remote: null, error } : { remote: null }
+  }
   const db = cloud.database as any
-  // owner_id / master_key 由前端显式写入（RLS 要求 master_key = auth.uid()）
   const { error } = await db.from(TABLE).insert({
     payload: local,
     master_key: masterKey,
@@ -55,6 +60,10 @@ export async function uploadLocal(
 /** 写回云端：更新主账户的存档 */
 export async function saveRemote(data: AppData, masterKey: string): Promise<{ error?: string }> {
   if (!isCloudEnabled) return {}
+  if (isExternal) {
+    const { error } = await extSaveState(data)
+    return error ? { error } : {}
+  }
   const db = cloud.database as any
   const { data: rows, error } = await db
     .from(TABLE)

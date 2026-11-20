@@ -1,12 +1,13 @@
 import { createWorkBuddyCloud } from '@tencent-ai/workbuddy-cloud-sdk'
-import { cloudConfig, isCloudEnabled } from './cloudConfig'
+import { cloudConfig, isCloudEnabled, isExternal, isWorkbuddy } from './cloudConfig'
+import { extSendCode, extVerifyCode, extGetSession, extSignOut } from './externalApi'
 import type { AuthUser, LoginProvider } from '../store/useAppStore'
 
 type CloudClient = ReturnType<typeof createWorkBuddyCloud>
 
 // 单一云客户端实例，全局复用（auth / database 共用同一环境）。
 // 阶段 A 的 EdgeOne 静态版默认游客模式，不在非 WorkBuddy 域名下创建云客户端。
-const createdCloud = isCloudEnabled
+const createdCloud = isWorkbuddy
   ? createWorkBuddyCloud({
       endpoint: cloudConfig.endpoint,
       oauthRelayBaseUrl: cloudConfig.oauthRelayBaseUrl,
@@ -38,9 +39,18 @@ export function normalizePhone(phone: string): string {
  */
 let pendingPhoneOtp: { phone: string; verificationId: string; isExistingUser: boolean } | null = null
 
+// external 模式：记住当前发码手机号，供 verify 提交（服务端按手机号+验证码校验）
+let pendingExternalPhone = ''
+
 export async function sendPhoneCode(phone: string): Promise<{ error?: string }> {
   if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
   if (!isValidPhone(phone)) return { error: '请输入正确的 11 位手机号' }
+  if (isExternal) {
+    const { error } = await extSendCode(phone)
+    if (error) return { error }
+    pendingExternalPhone = phone
+    return {}
+  }
   const sent = await cloud.auth.sendOtp({ phone })
   if (sent.error) return { error: sent.error.message }
   pendingPhoneOtp = { phone, ...sent.data }
@@ -56,6 +66,14 @@ export async function signInWithPhone(
   code: string
 ): Promise<{ user: AuthUser | null; error?: string; justBound?: boolean }> {
   if (!isCloudEnabled) return { user: null, error: GUEST_MODE_ERROR }
+  if (isExternal) {
+    if (!pendingExternalPhone) return { user: null, error: '请先获取验证码' }
+    if (!/^\d{6}$/.test(code.replace(/\D/g, ''))) return { user: null, error: '请输入 6 位验证码' }
+    const { user, error } = await extVerifyCode(pendingExternalPhone, code.replace(/\D/g, ''))
+    if (error || !user) return { user: null, error: error || '验证失败' }
+    pendingExternalPhone = ''
+    return { user }
+  }
   const pending = pendingPhoneOtp
   if (!pending) return { user: null, error: '请先获取验证码' }
   if (!/^\d{4,8}$/.test(code)) return { user: null, error: '请输入正确的验证码' }
@@ -111,6 +129,7 @@ export function getPendingWechatBind(): string | null {
 /** 发起微信登录：signInWithOAuth 只返回 URL，这里负责跳转（携带 sharecode） */
 export async function signInWithWechat(): Promise<{ error?: string }> {
   if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
+  if (isExternal) return { error: '微信快捷登录将在后续版本开放，请先用手机号登录' }
   const { data, error } = await cloud.auth.signInWithOAuth({
     provider: 'wechat',
     redirectTo: buildRedirectUrl(),
@@ -131,6 +150,7 @@ export async function signInWithWechat(): Promise<{ error?: string }> {
  */
 export async function bindWechat(): Promise<{ error?: string }> {
   if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
+  if (isExternal) return { error: '微信挂载将在后续版本开放（需备案域名），请先用手机号登录' }
   const { data, error } = await cloud.auth.signInWithOAuth({
     provider: 'wechat',
     redirectTo: buildRedirectUrl(true),
@@ -214,6 +234,11 @@ export async function restoreSession(): Promise<{
   needBindConfirm?: boolean   // 微信授权回调后，等待手机号验证确认
 }> {
   if (!isCloudEnabled) return { user: null }
+  if (isExternal) {
+    // external 模式没有微信 OAuth 回调（阶段 D 才接），仅恢复会话
+    const result = await extGetSession()
+    return { user: result.user, error: result.error }
+  }
   const url = new URL(location.href)
 
   // 有回调参数：先处理微信回调
@@ -264,6 +289,10 @@ export async function restoreSession(): Promise<{
 /** 登出 */
 export async function signOut(): Promise<{ error?: string }> {
   if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
+  if (isExternal) {
+    extSignOut()
+    return {}
+  }
   const { error } = await cloud.auth.signOut()
   return error ? { error: error.message } : {}
 }

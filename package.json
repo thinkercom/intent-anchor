@@ -10,6 +10,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.1",
     "@tencent-ai/workbuddy-cloud-sdk": "^0.1.4-dev.71e5d1e.202611161655",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.468.0",

@@ -5,7 +5,7 @@ import { useAppStore } from '../../store/useAppStore'
 import type { AppData } from '../../store/types'
 import { exportData, downloadJson, parseImport } from '../../lib/exportImport'
 import { signOut, unbindWechat } from '../../lib/cloud'
-import { isCloudEnabled } from '../../lib/cloudConfig'
+import { isCloudEnabled, isExternal } from '../../lib/cloudConfig'
 import { refreshFromCloud } from '../../lib/syncManager'
 
 interface Props {
@@ -298,24 +298,26 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
                     手机号是主账户。数据自动同步，换设备用手机号登录即可取回。
                   </p>
 
-                  {/* 微信挂载状态 */}
-                  <div className="mb-3 flex items-center justify-between rounded-xl px-3 py-2.5" style={{ background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
-                    <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--fg)' }}>
-                      <Link2 size={13} />微信快捷登录
-                      <span className="text-[10px]" style={{ color: store.authUser.linkedWechat ? '#7fbf8f' : 'var(--fg-muted)' }}>
-                        {store.authUser.linkedWechat ? '已挂载' : '未挂载'}
+                  {/* 微信挂载状态：WorkBuddy 云版本支持；EdgeOne 自建版阶段 D 才接微信，先隐藏 */}
+                  {!isExternal && (
+                    <div className="mb-3 flex items-center justify-between rounded-xl px-3 py-2.5" style={{ background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
+                      <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--fg)' }}>
+                        <Link2 size={13} />微信快捷登录
+                        <span className="text-[10px]" style={{ color: store.authUser.linkedWechat ? '#7fbf8f' : 'var(--fg-muted)' }}>
+                          {store.authUser.linkedWechat ? '已挂载' : '未挂载'}
+                        </span>
                       </span>
-                    </span>
-                    {store.authUser.linkedWechat ? (
-                      <button onClick={handleUnbind} disabled={bindBusy} className="flex items-center gap-1 text-[11px] disabled:opacity-60" style={{ color: 'var(--fg-muted)' }}>
-                        <Unlink size={12} />解绑
-                      </button>
-                    ) : (
-                      <button onClick={onRequestBind} className="text-[11px]" style={{ color: 'var(--accent)' }}>
-                        去挂载
-                      </button>
-                    )}
-                  </div>
+                      {store.authUser.linkedWechat ? (
+                        <button onClick={handleUnbind} disabled={bindBusy} className="flex items-center gap-1 text-[11px] disabled:opacity-60" style={{ color: 'var(--fg-muted)' }}>
+                          <Unlink size={12} />解绑
+                        </button>
+                      ) : (
+                        <button onClick={onRequestBind} className="text-[11px]" style={{ color: 'var(--accent)' }}>
+                          去挂载
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex gap-2">
                     <button onClick={handlePullCloud} className="flex-1 rounded-xl py-2 text-xs" style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg)' }}>
