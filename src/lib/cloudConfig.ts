@@ -11,10 +11,13 @@ export type CloudMode = 'workbuddy' | 'external' | 'guest'
 /**
  * 云能力模式：
  * - workbuddy：显示在 *.workbuddy.host 上，沿用原 WorkBuddy SDK 登录/数据库（现网不变）。
- * - external ：正式部署（EdgeOne 等）走自建 API：/api/auth/* + /api/state（Neon + Cloud Functions）。
- * - guest    ：本地开发/预览（localhost、file://）保持纯游客，避免误连线上云端。
+ * - external ：自建 API 模式（/api/auth/* + /api/state，Neon + Cloud Functions），
+ *              只有在显式设置 VITE_CLOUD_MODE=external 时才启用。
+ * - guest    ：纯本地模式（默认）。数据只存在当前浏览器的 localStorage，
+ *              两台设备各自独立、互不影响，不需要登录、数据库、短信或邮件。
  *
- * 可用构建时环境变量 VITE_CLOUD_MODE 强制覆盖（workbuddy / external / guest）。
+ * 当前产品定位是「两三个人自用」，所以正式域名默认就是 guest。
+ * 将来若要恢复云同步，构建时设置 VITE_CLOUD_MODE=external 即可，无需改代码。
  */
 function detectCloudMode(): CloudMode {
   const explicit = import.meta.env.VITE_CLOUD_MODE
@@ -22,12 +25,10 @@ function detectCloudMode(): CloudMode {
 
   if (typeof location === 'undefined') return 'guest'
   const host = location.hostname
+  // WorkBuddy 托管域名保持原手机号登录 + 云数据库，行为不变
   if (/(^|\.)workbuddy\.host$/.test(host)) return 'workbuddy'
-  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || location.protocol === 'file:') {
-    return 'guest'
-  }
-  // EdgeOne 默认域名与自定义域名等正式环境
-  return 'external'
+  // 其余所有环境（EdgeOne、自定义域名、localhost、file://）一律纯本地
+  return 'guest'
 }
 
 export const cloudMode: CloudMode = detectCloudMode()

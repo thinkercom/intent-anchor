@@ -25,6 +25,15 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
   const fileRef = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState('')
 
+  // iOS 上「添加到主屏幕」后数据更稳：Safari 标签页长期不访问可能被系统清理。
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const isStandalone =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches
+  const showHomeTip = isIOS && !isStandalone
+
   const flash = (msg: string) => {
     setToast(msg)
     window.setTimeout(() => setToast(''), 2200)
@@ -274,14 +283,29 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
 
         {tab === 'data' && (
           <div className="flex flex-col gap-3">
-            <SectionTitle>账户与同步</SectionTitle>
             {!isCloudEnabled ? (
-              <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                  当前部署为静态游客版，数据仅保存在本机浏览器。云登录、跨设备同步将在数据库和验证服务接入后开放。
-                </p>
-              </div>
+              <>
+                <SectionTitle>数据存储</SectionTitle>
+                <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                    数据只保存在这台设备上，不用登录。两个人各用自己手机打开同一个链接，记录彼此独立、互不影响。
+                  </p>
+                </div>
+                {showHomeTip && (
+                  <div className="rounded-2xl p-3.5" style={{ background: 'var(--glass)', border: '1px solid var(--card-border)' }}>
+                    <p className="flex items-start gap-2 text-[11px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                      <Info size={13} className="mt-0.5 shrink-0" />
+                      <span>
+                        建议先「添加到主屏幕」：点 Safari 底部的分享按钮 → 添加到主屏幕，以后从桌面图标打开。
+                        长期不打开的 Safari 网页，系统可能会清理它的数据。
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
+              <>
+            <SectionTitle>账户与同步</SectionTitle>
             <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
               {store.authUser ? (
                 <>
@@ -355,12 +379,15 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
                 <p className="mt-2 text-[11px]" style={{ color: 'var(--fg-danger, #e08a8a)' }}>{store.syncError}</p>
               )}
             </div>
+              </>
             )}
 
             <SectionTitle>数据备份</SectionTitle>
             <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
               <p className="mb-3 text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                登录后会云端同步；游客模式下清除浏览器数据会丢失记录，可定期导出 JSON 备份。
+                {isCloudEnabled
+                  ? '登录后会云端同步；未登录时清除浏览器数据会丢失记录，可定期导出 JSON 备份。'
+                  : '数据只在这台设备上。清除浏览器数据、删除桌面图标或换手机会丢失记录，建议定期导出一份 JSON 存到网盘或微信收藏。'}
               </p>
               <div className="flex gap-2">
                 <PrimaryBtn onClick={handleExport}><Download size={16} />导出备份</PrimaryBtn>
