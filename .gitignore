@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+.DS_Store
+.wbapp_*.genie
+.workbuddy/
+_flower-motion/
+flower-motion/
+reference/
+字体/
+_c2.txt
