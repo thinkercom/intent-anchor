@@ -4,9 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Intent Anchor</title>
-    <meta http-equiv="refresh" content="0; url=/" />
     <script>
-      location.replace('/')
+      // 单页应用没有 URL 路由，未知路径一律回到站点根目录。
+      // __BASE__ 在构建后由 scripts/patch-sw.mjs 替换成实际部署路径
+      // （根路径 / 或 GitHub Pages 的 /intent-anchor/），避免子目录里无限重定向。
+      location.replace('__BASE__')
     </script>
   </head>
   <body></body>

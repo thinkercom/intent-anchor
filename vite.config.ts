@@ -3,7 +3,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// GitHub Pages 的项目站点路径是 /<repo>/，其余托管（WorkBuddy、EdgeOne、本地）都在根路径。
+// 构建时通过 GITHUB_PAGES=true 切换，避免资源 404。
+const base = process.env.GITHUB_PAGES ? '/intent-anchor/' : '/'
+
 export default defineConfig({
+  base,
   server: {
     host: '0.0.0.0',
     allowedHosts: true,
@@ -26,7 +31,9 @@ export default defineConfig({
         background_color: '#07080c',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        // 用相对路径，子路径部署（GitHub Pages）时也能正确解析
+        start_url: '.',
+        scope: '.',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
