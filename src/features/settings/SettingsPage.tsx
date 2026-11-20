@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowLeft, Plus, Trash2, Download, Upload, RotateCcw, Info, Smartphone, Link2, Unlink } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Download, Upload, RotateCcw, Info, Smartphone, Mail, Link2, Unlink } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import type { AppData } from '../../store/types'
 import { exportData, downloadJson, parseImport } from '../../lib/exportImport'
@@ -278,7 +278,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
             {!isCloudEnabled ? (
               <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
                 <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                  当前部署为静态游客版，数据仅保存在本机浏览器。云登录、跨设备同步将在数据库和短信服务接入后开放。
+                  当前部署为静态游客版，数据仅保存在本机浏览器。云登录、跨设备同步将在数据库和验证服务接入后开放。
                 </p>
               </div>
             ) : (
@@ -287,15 +287,17 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
                 <>
                   <div className="mb-1 flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--fg)' }}>
-                      <Smartphone size={14} />
-                      {store.authUser.phone || store.authUser.name || '手机号账户'}
+                      {isExternal ? <Mail size={14} /> : <Smartphone size={14} />}
+                      {store.authUser.email || store.authUser.phone || store.authUser.name || (isExternal ? '邮箱账户' : '手机号账户')}
                     </span>
                     <span className="text-[11px]" style={{ color: store.syncStatus === 'error' ? 'var(--fg-danger, #e08a8a)' : 'var(--fg-muted)' }}>
                       {syncLabel[store.syncStatus]}
                     </span>
                   </div>
                   <p className="mb-3 text-[11px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                    手机号是主账户。数据自动同步，换设备用手机号登录即可取回。
+                    {isExternal
+                      ? '邮箱是主账户。数据自动同步，换设备用邮箱登录即可取回。'
+                      : '手机号是主账户。数据自动同步，换设备用手机号登录即可取回。'}
                   </p>
 
                   {/* 微信挂载状态：WorkBuddy 云版本支持；EdgeOne 自建版阶段 D 才接微信，先隐藏 */}
@@ -331,17 +333,21 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
               ) : (
                 <>
                   <p className="mb-3 text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                    手机号是你的主账户，验证码登录，无需密码。登录后跨设备同步，不丢失现有数据。
+                    {isExternal
+                      ? '邮箱是你的主账户，验证码登录，无需密码。登录后跨设备同步，不丢失现有数据。'
+                      : '手机号是你的主账户，验证码登录，无需密码。登录后跨设备同步，不丢失现有数据。'}
                   </p>
                   <button
                     onClick={onRequestLogin}
                     className="mb-2 w-full rounded-xl py-2.5 text-sm"
                     style={{ background: 'var(--accent)', color: 'var(--bg)' }}
                   >
-                    手机号登录 / 注册
+                    {isExternal ? '邮箱登录 / 注册' : '手机号登录 / 注册'}
                   </button>
                   <p className="text-[11px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                    登录后可在账户里挂载微信作为快捷入口，之后用微信即可一键直达。
+                    {isExternal
+                      ? '验证码会发送到你的邮箱，5 分钟内有效。'
+                      : '登录后可在账户里挂载微信作为快捷入口，之后用微信即可一键直达。'}
                   </p>
                 </>
               )}

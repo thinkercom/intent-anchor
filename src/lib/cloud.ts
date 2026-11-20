@@ -22,9 +22,14 @@ const GUEST_MODE_ERROR = '当前为静态游客版，云登录将在数据库接
 const TABLE = 'account_identity'
 const PENDING_BIND_KEY = 'intent_anchor_pending_wechat_bind'
 
-/** 手机号发码前的校验（大陆 11 位） */
+/** 手机号发码前的校验（大陆 11 位，仅 WorkBuddy 现网使用） */
 export function isValidPhone(phone: string): boolean {
   return /^1\d{10}$/.test(phone)
+}
+
+/** 邮箱格式校验（external / EdgeOne 版本使用） */
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && email.trim().length <= 254
 }
 
 /** 手机号规范化为 +86 前缀（SDK 内部也会做，这里用于展示与映射键对齐） */
@@ -34,23 +39,28 @@ export function normalizePhone(phone: string): string {
 }
 
 /**
- * 第 1 步：发送短信验证码。
+ * 第 1 步：发送短信验证码（WorkBuddy 现网）。
  * isExistingUser 决定后续 verifyOtp 的入参，challenge 需暂存到模块级变量。
  */
 let pendingPhoneOtp: { phone: string; verificationId: string; isExistingUser: boolean } | null = null
 
-// external 模式：记住当前发码手机号，供 verify 提交（服务端按手机号+验证码校验）
-let pendingExternalPhone = ''
+// external 模式：记住当前发码邮箱，供 verify 提交（服务端按邮箱+验证码校验）
+let pendingExternalEmail = ''
+
+/** external 模式：发送邮箱验证码 */
+export async function sendEmailCode(email: string): Promise<{ error?: string }> {
+  if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
+  const normalized = email.trim().toLowerCase()
+  if (!isValidEmail(normalized)) return { error: '请输入正确的邮箱地址' }
+  const { error } = await extSendCode(normalized)
+  if (error) return { error }
+  pendingExternalEmail = normalized
+  return {}
+}
 
 export async function sendPhoneCode(phone: string): Promise<{ error?: string }> {
   if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
   if (!isValidPhone(phone)) return { error: '请输入正确的 11 位手机号' }
-  if (isExternal) {
-    const { error } = await extSendCode(phone)
-    if (error) return { error }
-    pendingExternalPhone = phone
-    return {}
-  }
   const sent = await cloud.auth.sendOtp({ phone })
   if (sent.error) return { error: sent.error.message }
   pendingPhoneOtp = { phone, ...sent.data }
@@ -62,18 +72,23 @@ export async function sendPhoneCode(phone: string): Promise<{ error?: string }> 
  * 成功后确保 account_identity 里存在 (phoneUid → phoneUid, 'phone') 映射，
  * 因为 RLS 要求 master_key = auth.uid() 才能写入自己的映射。
  */
+/** external 模式：验证邮箱验证码并完成登录（邮箱即主账户） */
+export async function signInWithEmail(
+  code: string
+): Promise<{ user: AuthUser | null; error?: string; justBound?: boolean }> {
+  if (!isCloudEnabled) return { user: null, error: GUEST_MODE_ERROR }
+  if (!pendingExternalEmail) return { user: null, error: '请先获取验证码' }
+  if (!/^\d{6}$/.test(code.replace(/\D/g, ''))) return { user: null, error: '请输入 6 位验证码' }
+  const { user, error } = await extVerifyCode(pendingExternalEmail, code.replace(/\D/g, ''))
+  if (error || !user) return { user: null, error: error || '验证失败' }
+  pendingExternalEmail = ''
+  return { user }
+}
+
 export async function signInWithPhone(
   code: string
 ): Promise<{ user: AuthUser | null; error?: string; justBound?: boolean }> {
   if (!isCloudEnabled) return { user: null, error: GUEST_MODE_ERROR }
-  if (isExternal) {
-    if (!pendingExternalPhone) return { user: null, error: '请先获取验证码' }
-    if (!/^\d{6}$/.test(code.replace(/\D/g, ''))) return { user: null, error: '请输入 6 位验证码' }
-    const { user, error } = await extVerifyCode(pendingExternalPhone, code.replace(/\D/g, ''))
-    if (error || !user) return { user: null, error: error || '验证失败' }
-    pendingExternalPhone = ''
-    return { user }
-  }
   const pending = pendingPhoneOtp
   if (!pending) return { user: null, error: '请先获取验证码' }
   if (!/^\d{4,8}$/.test(code)) return { user: null, error: '请输入正确的验证码' }
@@ -129,7 +144,7 @@ export function getPendingWechatBind(): string | null {
 /** 发起微信登录：signInWithOAuth 只返回 URL，这里负责跳转（携带 sharecode） */
 export async function signInWithWechat(): Promise<{ error?: string }> {
   if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
-  if (isExternal) return { error: '微信快捷登录将在后续版本开放，请先用手机号登录' }
+  if (isExternal) return { error: '微信快捷登录将在后续版本开放，请先用邮箱登录' }
   const { data, error } = await cloud.auth.signInWithOAuth({
     provider: 'wechat',
     redirectTo: buildRedirectUrl(),
@@ -150,7 +165,7 @@ export async function signInWithWechat(): Promise<{ error?: string }> {
  */
 export async function bindWechat(): Promise<{ error?: string }> {
   if (!isCloudEnabled) return { error: GUEST_MODE_ERROR }
-  if (isExternal) return { error: '微信挂载将在后续版本开放（需备案域名），请先用手机号登录' }
+  if (isExternal) return { error: '微信挂载将在后续版本开放（需备案域名），请先用邮箱登录' }
   const { data, error } = await cloud.auth.signInWithOAuth({
     provider: 'wechat',
     redirectTo: buildRedirectUrl(true),

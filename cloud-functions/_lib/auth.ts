@@ -1,4 +1,4 @@
-// 会话 JWT（HS256）+ 验证码哈希 + 手机号规范化。
+// 会话 JWT（HS256）+ 验证码哈希 + 邮箱规范化。
 // 用 Web Crypto（crypto.subtle），EdgeOne Node 20 运行时原生支持，无第三方依赖。
 import { cfg } from './config'
 
@@ -35,9 +35,9 @@ async function hmacKey(): Promise<CryptoKey> {
 }
 
 export interface SessionPayload {
-  mk: string    // master_key（规范化手机号）
-  phone: string // 规范化手机号
-  prov: 'phone' | 'wechat'
+  mk: string     // master_key（规范化邮箱）
+  email: string  // 规范化邮箱
+  prov: 'email' | 'wechat'
   iat: number
   exp: number
 }
@@ -46,8 +46,8 @@ const SESSION_TTL = 30 * 24 * 3600 // 30 天
 
 export async function signSession(input: {
   mk: string
-  phone: string
-  prov: 'phone' | 'wechat'
+  email: string
+  prov: 'email' | 'wechat'
 }): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
   const payload: SessionPayload = { ...input, iat: now, exp: now + SESSION_TTL }
@@ -74,7 +74,7 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
     const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(body))) as SessionPayload
     const now = Math.floor(Date.now() / 1000)
     if (!payload.exp || payload.exp < now) return null
-    if (!payload.mk || !payload.phone) return null
+    if (!payload.mk || !payload.email) return null
     return payload
   } catch {
     return null
@@ -88,16 +88,18 @@ export function bearer(request: Request): string | null {
   return m ? m[1] : null
 }
 
-/** 手机号规范化：只接受大陆 11 位，输出 +86xxxxxxxxxxx */
-export function normalizePhone(input: unknown): string | null {
-  const digits = String(input ?? '').replace(/\D/g, '')
-  if (!/^1\d{10}$/.test(digits)) return null
-  return `+86${digits}`
+/** 邮箱规范化：去空格、转小写、基础格式校验，返回规范化邮箱或 null */
+export function normalizeEmail(input: unknown): string | null {
+  const email = String(input ?? '').trim().toLowerCase()
+  if (!email || email.length > 254) return null
+  // 单一 @，本地部分与域名部分都非空，域名含点且不含空格
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
+  return email
 }
 
-/** 验证码哈希：HMAC-SHA256(code + ':' + phone, JWT_SECRET)，不做可逆存储 */
-export async function hashCode(code: string, phone: string): Promise<string> {
-  const sig = await crypto.subtle.sign('HMAC', await hmacKey(), encoder.encode(`${code}:${phone}`))
+/** 验证码哈希：HMAC-SHA256(code + ':' + email, JWT_SECRET)，不做可逆存储 */
+export async function hashCode(code: string, email: string): Promise<string> {
+  const sig = await crypto.subtle.sign('HMAC', await hmacKey(), encoder.encode(`${code}:${email}`))
   return toBase64Url(new Uint8Array(sig))
 }
 
@@ -108,11 +110,12 @@ export function generateCode(): string {
   return String(buf[0] % 1_000_000).padStart(6, '0')
 }
 
-/** 手机号脱敏：兼容 +86 前缀，输出 138****8000 */
-export function maskPhone(phone: string): string {
-  let d = phone.replace(/\D/g, '')
-  if (d.length === 13 && d.startsWith('86')) d = d.slice(2) // 去掉国家码
-  if (d.length === 11) return `${d.slice(0, 3)}****${d.slice(-4)}`
-  if (d.length >= 7) return `${d.slice(0, 3)}****${d.slice(-4)}`
-  return phone
+/** 邮箱脱敏：thinker@example.com -> t***r@example.com */
+export function maskEmail(email: string): string {
+  const at = email.indexOf('@')
+  if (at <= 0) return email
+  const local = email.slice(0, at)
+  const domain = email.slice(at + 1)
+  if (local.length <= 2) return `${local.slice(0, 1)}***@${domain}`
+  return `${local[0]}***${local[local.length - 1]}@${domain}`
 }

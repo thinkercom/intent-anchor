@@ -35,14 +35,15 @@ function initialData(): AppData {
 
 export type SyncStatus = 'idle' | 'syncing' | 'saved' | 'error'
 
-export type LoginProvider = 'phone' | 'wechat'
+export type LoginProvider = 'phone' | 'email' | 'wechat'
 
 export interface AuthUser {
   id: string                    // 当前 provider 的 uid
   name?: string | null
-  masterKey: string             // 主账户键（手机号 uid），数据归属
+  masterKey: string             // 主账户键（规范化邮箱或手机号 uid），数据归属
   provider: LoginProvider       // 当前会话的登录方式
-  phone?: string | null         // 主账户手机号（脱敏展示用）
+  email?: string | null         // 主账户邮箱（脱敏展示用，external/EdgeOne 版本）
+  phone?: string | null         // 主账户手机号（脱敏展示用，WorkBuddy 现网）
   linkedWechat: boolean         // 主账户是否已挂载微信
 }
 

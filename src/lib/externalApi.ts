@@ -32,21 +32,21 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<{ data:
   return { data: body as T }
 }
 
-export async function extSendCode(phone: string): Promise<{ error?: string }> {
+export async function extSendCode(email: string): Promise<{ error?: string }> {
   const { error } = await request<{ ok: boolean }>('/api/auth/send-code', {
     method: 'POST',
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ email }),
   })
   return error ? { error } : {}
 }
 
-export async function extVerifyCode(phone: string, code: string): Promise<{
+export async function extVerifyCode(email: string, code: string): Promise<{
   user: AuthUser | null
   error?: string
 }> {
   const { data, error } = await request<{ token: string; user: AuthUser }>('/api/auth/verify', {
     method: 'POST',
-    body: JSON.stringify({ phone, code }),
+    body: JSON.stringify({ email, code }),
   })
   if (error || !data) return { user: null, error: error || '验证失败' }
   setToken(data.token)

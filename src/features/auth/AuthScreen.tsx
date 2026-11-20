@@ -4,8 +4,11 @@ import { X } from 'lucide-react'
 import {
   sendPhoneCode,
   signInWithPhone,
+  sendEmailCode,
+  signInWithEmail,
   signInWithWechat,
   isValidPhone,
+  isValidEmail,
   getPendingWechatBind,
 } from '../../lib/cloud'
 import type { AuthUser } from '../../store/useAppStore'
@@ -18,17 +21,20 @@ interface Props {
   onSignedIn: (user: AuthUser, justBound: boolean) => void
 }
 
-/** 登录 / 绑定界面：手机号验证码为主，微信为挂载入口 */
+/** 登录 / 绑定界面：external 版用邮箱验证码；WorkBuddy 现网用手机号，微信为挂载入口 */
 export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
-  const [phone, setPhone] = useState('')
+  const [account, setAccount] = useState('')   // 邮箱（external）或手机号（WorkBuddy）
   const [code, setCode] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [phoneError, setPhoneError] = useState('')
+  const [accountError, setAccountError] = useState('')
   const [cooldown, setCooldown] = useState(0)
 
   const isBind = mode === 'bind' || !!getPendingWechatBind()
+  const accountLabel = isExternal ? '邮箱' : '手机号'
+  const codePlaceholder = isExternal ? '邮箱验证码' : '短信验证码'
+  const accountPlaceholder = isExternal ? 'you@example.com' : '11 位手机号'
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -39,14 +45,16 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
   }, [onClose])
 
   const handleSendCode = async () => {
-    if (!isValidPhone(phone)) {
-      setPhoneError('请输入正确的 11 位手机号')
+    const value = account.trim()
+    const valid = isExternal ? isValidEmail(value) : isValidPhone(value)
+    if (!valid) {
+      setAccountError(isExternal ? '请输入正确的邮箱地址' : '请输入正确的 11 位手机号')
       return
     }
-    setPhoneError('')
+    setAccountError('')
     setBusy(true)
     setError('')
-    const { error: err } = await sendPhoneCode(phone)
+    const { error: err } = isExternal ? await sendEmailCode(value) : await sendPhoneCode(value)
     setBusy(false)
     if (err) {
       setError(err)
@@ -68,7 +76,9 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
   const handleVerify = async () => {
     setBusy(true)
     setError('')
-    const { user, error: err, justBound } = await signInWithPhone(code)
+    const { user, error: err, justBound } = isExternal
+      ? await signInWithEmail(code)
+      : await signInWithPhone(code)
     setBusy(false)
     if (err || !user) {
       setError(err || '验证失败，请重试')
@@ -91,7 +101,7 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
     <motion.main
       role="dialog"
       aria-modal="true"
-      aria-label={isBind ? '确认绑定' : '手机号登录'}
+      aria-label={isBind ? '确认绑定' : isExternal ? '邮箱登录' : '手机号登录'}
       // 关键：整层必须是完全不透明的背景，且固定覆盖整个视口。
       // 任何半透明都会让底层设置页文字透出来，造成「两个页面叠在一起」。
       className="fixed inset-0 z-[100] isolate overflow-y-auto"
@@ -138,28 +148,31 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
           </p>
           <p className="mb-8 text-center text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
             {isBind
-              ? '输入手机号验证码，完成微信与账户的绑定。'
-              : '手机号是你的主账户，登录后跨设备同步。微信可作为快捷入口挂载。'}
+              ? `输入${accountLabel}验证码，完成微信与账户的绑定。`
+              : isExternal
+                ? '邮箱是你的主账户，登录后跨设备同步，无需密码。'
+                : '手机号是你的主账户，登录后跨设备同步。微信可作为快捷入口挂载。'}
           </p>
 
-          {/* 手机号输入 */}
+          {/* 账户输入：邮箱（external）或手机号（WorkBuddy） */}
           <label className="mb-1 block text-xs" style={{ color: 'var(--fg-muted)' }}>
-            手机号
+            {accountLabel}
           </label>
           <input
-            type="tel"
-            inputMode="numeric"
-            value={phone}
+            type={isExternal ? 'email' : 'tel'}
+            inputMode={isExternal ? 'email' : 'numeric'}
+            autoComplete={isExternal ? 'email' : 'tel'}
+            value={account}
             disabled={codeSent || busy}
             onChange={(e) => {
-              setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))
-              setPhoneError('')
+              setAccount(isExternal ? e.target.value.slice(0, 254) : e.target.value.replace(/\D/g, '').slice(0, 11))
+              setAccountError('')
             }}
-            placeholder="11 位手机号"
+            placeholder={accountPlaceholder}
             className="mb-1 w-full rounded-xl px-4 py-3 text-sm"
             style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg)' }}
           />
-          {phoneError && <p className="mb-2 text-[11px]" style={{ color: 'var(--fg-danger)' }}>{phoneError}</p>}
+          {accountError && <p className="mb-2 text-[11px]" style={{ color: 'var(--fg-danger)' }}>{accountError}</p>}
 
           {!codeSent ? (
             <button
@@ -179,9 +192,10 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
               <input
                 type="text"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                placeholder="短信验证码"
+                placeholder={codePlaceholder}
                 className="mb-2 w-full rounded-xl px-4 py-3 text-sm tracking-widest"
                 style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg)' }}
               />
@@ -204,7 +218,7 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
                 className="mb-4 w-full py-1 text-xs"
                 style={{ color: 'var(--fg-muted)' }}
               >
-                更换手机号{cooldown > 0 ? `（${cooldown}s 后可重发）` : ''}
+                更换{accountLabel}{cooldown > 0 ? `（${cooldown}s 后可重发）` : ''}
               </button>
             </>
           )}

@@ -3,11 +3,11 @@
 const KEYS = [
   'DATABASE_URL',
   'JWT_SECRET',
-  'SMS_SECRET_ID',
-  'SMS_SECRET_KEY',
-  'SMS_SDK_APP_ID',
-  'SMS_SIGN_NAME',
-  'SMS_TEMPLATE_ID',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS',
+  'SMTP_FROM',
 ] as const
 
 const injected: Record<string, string> = {}
