@@ -239,7 +239,10 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
           className="mx-5 mb-3 flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px]"
           style={{
             background: 'var(--warn-bg)',
+            /* 提醒条也是玻璃：一道顶部微光 + 内高光，不然它是一块死板的色块 */
+            backgroundImage: 'linear-gradient(180deg, var(--warn-sheen), transparent 62%)',
             border: '1px solid var(--warn-border)',
+            boxShadow: 'inset 0 1px 0 var(--warn-sheen)',
             color: 'var(--warn-fg)',
           }}
         >
@@ -307,7 +310,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
                 <IconBtn onClick={() => store.removeReward(r.id)} color="var(--fg-muted)" label="删除"><Trash2 size={16} /></IconBtn>
               </Row>
             ))}
-            <div className="mt-3 rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            <div className="surface mt-3 rounded-2xl p-4">
               <TextInput value={rewardLabel} onChange={setRewardLabel} placeholder="奖励名称，如：一杯手冲" />
               <div className="mt-2 flex gap-2">
                 <input
@@ -367,11 +370,8 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
             {/* 备份卡放在最前：这是数据安全最要紧的一件事 */}
             <SectionTitle>数据备份</SectionTitle>
             <div
-              className="rounded-2xl p-4"
-              style={{
-                background: 'var(--card-bg)',
-                border: `1px solid ${backup.needsAttention ? 'var(--warn-border)' : 'var(--card-border)'}`,
-              }}
+              className="surface rounded-2xl p-4"
+              style={backup.needsAttention ? { borderColor: 'var(--warn-border)' } : undefined}
             >
               <div className="mb-1 flex items-center gap-2">
                 {backup.needsAttention ? (
@@ -443,7 +443,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
             {!isCloudEnabled ? (
               <>
                 <SectionTitle>数据存储</SectionTitle>
-                <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                <div className="surface rounded-2xl p-4">
                   <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                     数据只保存在这台设备上，不用登录。两个人各用自己手机打开同一个链接，记录彼此独立、互不影响。
                   </p>
@@ -463,7 +463,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
             ) : (
               <>
             <SectionTitle>账户与同步</SectionTitle>
-            <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            <div className="surface rounded-2xl p-4">
               {store.authUser ? (
                 <>
                   <div className="mb-1 flex items-center justify-between">
@@ -552,7 +552,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
               <RotateCcw size={16} />重置所有数据
             </button>
 
-            <div className="mt-2 flex items-start gap-2 rounded-2xl p-4 text-[11px] leading-relaxed" style={{ background: 'var(--card-bg)', color: 'var(--fg-muted)' }}>
+            <div className="mt-2 flex items-start gap-2 rounded-2xl p-4 text-[11px] leading-relaxed" style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg-muted)' }}>
               <Info size={14} className="mt-0.5 shrink-0" />
               <span>Intent Anchor · v0.1.0 · 数据仅保存在本机浏览器。导入为覆盖式，会替换当前全部数据。</span>
             </div>
@@ -633,7 +633,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 
 function Row({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl px-4 py-3" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+    <div className="surface flex items-center gap-2 rounded-2xl px-4 py-3">
       {children}
     </div>
   )
@@ -648,21 +648,20 @@ function TextInput({ value, onChange, onEnter, placeholder }: { value: string; o
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => e.key === 'Enter' && onEnter?.()}
       placeholder={placeholder}
-      className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
-      style={{ background: 'var(--glass)', border: '1px solid var(--card-border)', color: 'var(--fg)' }}
+      className="field min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
     />
   )
 }
 function PrimaryBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <motion.button onClick={onClick} whileTap={{ scale: 0.96 }} className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
+    <motion.button onClick={onClick} whileTap={{ scale: 0.96 }} className="btn-solid flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>
       {children}
     </motion.button>
   )
 }
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+    <div className="surface-sunken rounded-2xl px-4 py-3">
       <div className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>{label}</div>
       <div className="mt-1 text-lg" style={{ color: 'var(--fg)' }}>{value}</div>
     </div>

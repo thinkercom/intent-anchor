@@ -107,7 +107,7 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
   return (
     <motion.main
       className="absolute inset-0 z-20 flex flex-col"
-      style={{ background: 'var(--bg)' }}
+      style={{ background: 'var(--page-bg)' }}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 16 }}
@@ -138,30 +138,40 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
 
       {/* 可滚动内容 */}
       <div className="no-scrollbar flex-1 overflow-y-auto px-5 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        {/* 连续天数 + 完成度 */}
+        {/* 连续天数 + 完成度：这一屏的主角，给最大的光和最远的投影，
+            与下面的习惯列表拉开层次，而不是所有卡片一样重 */}
         <motion.div
-          className="mb-5 flex items-end justify-between rounded-2xl px-5 py-4"
-          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+          className="surface surface-hero relative mb-6 flex items-end justify-between rounded-[26px] px-6 py-6"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
         >
+          {/* 两栏之间的细光，把「连续」和「今日」分开，而不是靠留白硬撑 */}
+          <span
+            className="absolute left-1/2 top-5 bottom-5 w-px -translate-x-1/2"
+            style={{ background: 'linear-gradient(180deg, transparent, var(--card-border), transparent)' }}
+            aria-hidden="true"
+          />
           <div>
             <span className="flex items-center gap-1.5 text-[11px] tracking-wider" style={{ color: 'var(--fg-muted)' }}>
               <Flame size={14} />
               连续专注
             </span>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-3xl" style={{ fontFamily: 'var(--headline-font)', color: 'var(--fg)' }}>{streak}</span>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-[3rem] leading-none tracking-tight" style={{ fontFamily: 'var(--headline-font)', color: 'var(--fg)' }}>{streak}</span>
               <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>天</span>
             </div>
           </div>
           <div className="text-right">
             <span className="text-[11px] tracking-wider" style={{ color: 'var(--fg-muted)' }}>今日完成</span>
-            <div className="mt-1 text-lg" style={{ color: 'var(--fg)' }}>
+            <div className="mt-2 text-lg" style={{ color: 'var(--fg)' }}>
               {doneCount} / {activeHabits.length}
             </div>
-            <div className="mt-1.5 h-1 w-24 overflow-hidden rounded-full" style={{ background: 'var(--glass)' }}>
-              <motion.div className="h-full rounded-full" style={{ background: 'var(--accent)' }} animate={{ width: `${progress * 100}%` }} transition={{ duration: 0.5 }} />
+            <div className="mt-2 h-1 w-24 overflow-hidden rounded-full" style={{ background: 'var(--glass)' }}>
+              <motion.div
+                className="liquid-bar h-full rounded-full"
+                animate={{ width: `${progress * 100}%` }}
+                transition={{ duration: 0.5 }}
+              />
             </div>
           </div>
         </motion.div>
@@ -223,8 +233,7 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
           </Reorder.Group>
         ) : (
           <div
-            className="rounded-2xl px-5 py-6 text-center"
-            style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+            className="surface rounded-2xl px-5 py-6 text-center"
           >
             <p className="text-sm" style={{ color: 'var(--fg)' }}>还没有习惯</p>
             <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>

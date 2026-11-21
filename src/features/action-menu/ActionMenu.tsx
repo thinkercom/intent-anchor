@@ -25,13 +25,7 @@ export function ActionMenu({ onClose, onNavigate }: Props) {
 
       <motion.div
         layoutId="action-panel"
-        className="relative z-10 w-full max-w-sm overflow-hidden rounded-3xl p-6"
-        style={{
-          background: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          boxShadow: 'var(--shadow)',
-          backdropFilter: 'blur(20px)',
-        }}
+        className="surface surface-hero relative z-10 w-full max-w-sm overflow-hidden rounded-3xl p-6"
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
         <div className="mb-6 flex items-center justify-between">
@@ -62,8 +56,7 @@ export function ActionMenu({ onClose, onNavigate }: Props) {
           <motion.button
             variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
             onClick={() => onNavigate('habits')}
-            className="flex w-full items-center gap-4 rounded-2xl p-4 text-left"
-            style={{ background: 'var(--glass)', border: '1px solid var(--card-border)' }}
+            className="surface flex w-full items-center gap-4 rounded-2xl p-4 text-left"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >

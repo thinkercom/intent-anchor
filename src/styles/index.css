@@ -16,6 +16,12 @@
   font-display: swap;
 }
 
+/* 玻璃表面的微颗粒。真实磨砂玻璃不是纯色，有极细的凹凸；
+   纯色 + 圆角 + 均匀阴影 = 塑料。alpha 已烘焙进 SVG，避免额外请求。 */
+:root {
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+
 :root {
   --headline-font: 'Playfair Display', Georgia, serif;
   --body-font: 'DM Sans', system-ui, sans-serif;
@@ -31,14 +37,47 @@
   --warn-bg: #f7ecd7;
   --warn-border: rgba(178, 138, 58, 0.28);
   --warn-fg: #8a6724;
-  --card-bg: rgba(255, 255, 255, 0.72);
-  --card-border: rgba(60, 55, 45, 0.12);
-  --glass: rgba(255, 255, 255, 0.55);
-  --shadow: 0 20px 60px rgba(60, 55, 45, 0.12);
-  /* 拖动中的卡片：抬起来的感觉，比静态阴影更深更实 */
-  --drag-shadow: 0 18px 42px rgba(60, 55, 45, 0.28);
-  --card-bg-drag: #fffdf8;
-  --veil: rgba(244, 242, 236, 0.35);
+  --warn-sheen: rgba(255, 255, 255, 0.62);
+
+  /* ---- 材质：雾面玻璃 ----
+     底色只给一半透明度，让背后的视频/光影透上来；
+     blur + saturate 让透过来的东西变成「色块」而不是细节。 */
+  --card-bg: rgba(255, 255, 255, 0.34);
+  --card-bg-drag: rgba(255, 255, 255, 0.82);
+  --card-border: rgba(60, 55, 45, 0.09);
+  --glass: rgba(255, 255, 255, 0.24);
+  --glass-blur: blur(16px) saturate(165%) brightness(1.04);
+
+  /* ---- 光：玻璃边缘受光是上亮下暗，才有「厚度」 ---- */
+  --edge-top: rgba(255, 255, 255, 0.95);
+  --edge-bottom: rgba(60, 55, 45, 0.08);
+  /* 卡面上斜上方打下来的一团柔光 */
+  --sheen: rgba(255, 255, 255, 0.9);
+  /* 未打卡圆圈的外圈：比纯灰多一点点温度，像磨过的金属丝 */
+  --circle-ring: rgba(60, 55, 45, 0.3);
+  --circle-fill: rgba(255, 255, 255, 0.5);
+  --sunken-bg: rgba(255, 255, 255, 0.14);
+  /* 已打卡实心圆的内高光，让它看起来是凸起的而不是一块色 */
+  --circle-light: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 6px -2px rgba(60, 55, 45, 0.35);
+  /* 内壁反射：顶部一条极细高光，底部一条极淡阴影 */
+  --inner-light: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 3px -1px rgba(60, 55, 45, 0.07);
+
+  /* ---- 阴影：接触影（近、紧）＋ 环境影（远、散），单层阴影最塑料 ---- */
+  --shadow: 0 1px 2px rgba(92, 78, 58, 0.1), 0 18px 40px -16px rgba(92, 78, 58, 0.3);
+  --shadow-hero: 0 2px 4px rgba(92, 78, 58, 0.09), 0 34px 66px -22px rgba(92, 78, 58, 0.4);
+  --drag-shadow: 0 4px 8px rgba(60, 55, 45, 0.1), 0 26px 52px -16px rgba(60, 55, 45, 0.34);
+
+  /* 页面本身半透明，让背景视频的光影透上来（否则玻璃后面是空的） */
+  --page-bg: linear-gradient(158deg, rgba(246, 244, 238, 0.56) 0%, rgba(228, 222, 210, 0.74) 100%);
+  --veil: rgba(244, 242, 236, 0.3);
+  /* 压在视频上的文字：浅色主题给白色光晕，把字从花瓣里托起来 */
+  --text-halo: 0 1px 1px rgba(255, 255, 255, 0.9), 0 2px 24px rgba(255, 255, 255, 0.6);
+
+  /* 场景光：给整个画面一个明确的光源方向（左上），
+     再在四周压一点暗，视线才会聚到中间 */
+  --scene-light: radial-gradient(80% 55% at 22% -8%, rgba(255, 250, 238, 0.7), transparent 70%);
+  --scrim: rgba(250, 248, 242, 0.2);
+  --scene-vignette: radial-gradient(120% 90% at 50% 42%, transparent 38%, rgba(60, 55, 45, 0.12) 100%);
   /* 全屏弹层背景：必须完全不透明，否则底层页面文字会透出来 */
   --modal-bg: #f4f2ec;
 }
@@ -53,14 +92,37 @@
   --warn-bg: rgba(198, 158, 76, 0.14);
   --warn-border: rgba(198, 158, 76, 0.3);
   --warn-fg: #d9b878;
-  --card-bg: rgba(28, 27, 36, 0.62);
-  --card-border: rgba(200, 182, 216, 0.18);
-  --glass: rgba(20, 19, 26, 0.55);
-  --shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
-  --drag-shadow: 0 22px 50px rgba(0, 0, 0, 0.7);
-  --card-bg-drag: #1a1922;
-  --veil: rgba(7, 8, 12, 0.4);
+  --warn-sheen: rgba(255, 255, 255, 0.08);
+
+  --card-bg: rgba(60, 55, 78, 0.54);
+  --card-bg-drag: rgba(52, 48, 68, 0.86);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --glass: rgba(46, 42, 62, 0.44);
+  --glass-blur: blur(16px) saturate(160%) brightness(1.16);
+
+  --edge-top: rgba(255, 255, 255, 0.16);
+  --edge-bottom: rgba(0, 0, 0, 0.4);
+  --sheen: rgba(255, 255, 255, 0.2);
+  --circle-ring: rgba(255, 255, 255, 0.28);
+  --circle-fill: rgba(255, 255, 255, 0.045);
+  --sunken-bg: rgba(16, 15, 24, 0.34);
+  --circle-light: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 8px -2px rgba(0, 0, 0, 0.7);
+  --inner-light: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -2px 4px -1px rgba(0, 0, 0, 0.4);
+
+  --shadow: 0 1px 1px rgba(0, 0, 0, 0.5), 0 22px 48px -18px rgba(0, 0, 0, 0.85);
+  --shadow-hero: 0 3px 6px rgba(0, 0, 0, 0.6), 0 42px 84px -26px rgba(0, 0, 0, 0.95);
+  --drag-shadow: 0 5px 10px rgba(0, 0, 0, 0.6), 0 30px 60px -18px rgba(0, 0, 0, 0.9);
+
+  --page-bg: linear-gradient(158deg, rgba(13, 11, 22, 0.58) 0%, rgba(5, 5, 9, 0.78) 100%);
+  --veil: rgba(7, 8, 12, 0.34);
+  --text-halo: 0 1px 2px rgba(0, 0, 0, 0.55), 0 2px 30px rgba(0, 0, 0, 0.6);
+  --scene-light: radial-gradient(75% 50% at 26% -10%, rgba(150, 120, 200, 0.18), transparent 72%);
+  --scrim: rgba(6, 6, 10, 0.46);
+  --scene-vignette: radial-gradient(120% 90% at 50% 40%, transparent 32%, rgba(0, 0, 0, 0.6) 100%);
   --modal-bg: #07080c;
+
+  /* 深色玻璃上的颗粒要更明显一点才看得出材质 */
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
 }
 
 * {
@@ -104,3 +166,197 @@ button {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ============================================================
+   材质层：雾面玻璃
+   ------------------------------------------------------------
+   一块「玻璃」由四样东西组成，缺任何一样都会掉回塑料：
+     1. 半透明底色 —— 背后的东西要能透上来
+     2. 模糊 + 提饱和 —— 透上来的是色块，不是细节
+     3. 上亮下暗的边 —— 光从上方来，玻璃才有厚度
+     4. 斜上方一团柔光 + 表面颗粒 —— 不是均匀的纯色
+   ============================================================ */
+
+.surface {
+  position: relative;
+  background-color: var(--card-bg);
+  background-image:
+    radial-gradient(112% 92% at 18% -14%, var(--sheen), transparent 62%),
+    var(--noise);
+  border: 1px solid var(--card-border);
+  border-top-color: var(--edge-top);
+  border-bottom-color: var(--edge-bottom);
+  box-shadow: var(--inner-light), var(--shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* 主角卡：更大一圈光、更远的投影，与配角拉开层次。
+   圆角交给 Tailwind 的 rounded-* 控制，这里不写死。 */
+.surface-hero {
+  border-top-color: var(--edge-top);
+  box-shadow: var(--inner-light), var(--shadow-hero);
+  background-image:
+    radial-gradient(74% 92% at 17% -2%, var(--sheen), transparent 70%),
+    radial-gradient(62% 62% at 97% 106%, var(--sheen), transparent 72%),
+    var(--noise);
+}
+
+/* 沉下去的卡：已完成、次要信息。没有影子、内壁微微发暗，
+   和浮起来的卡片形成虚实，而不是全部一个高度 */
+.surface-sunken {
+  background-color: var(--sunken-bg);
+  background-image: var(--noise);
+  border: 1px solid var(--card-border);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+}
+:root[data-theme='dark'] .surface-sunken {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+/* 安静的条目：列表里五张卡都用同一档重量，就是「一模一样压出来的」。
+   这里只留很近的接触影，没有远处大投影、没有顶部光斑——
+   于是视觉重量集中到上面那张主卡，页面才有主次。 */
+.surface-quiet {
+  background-color: var(--glass);
+  background-image: var(--noise);
+  border: 1px solid var(--card-border);
+  border-top-color: var(--edge-top);
+  box-shadow: var(--inner-light), 0 1px 2px rgba(60, 55, 45, 0.05);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  backdrop-filter: blur(10px) saturate(150%);
+}
+:root[data-theme='dark'] .surface-quiet {
+  box-shadow: var(--inner-light), 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+/* 小胶囊按钮（主题切换、意图入口） */
+.glass-pill {
+  background-color: var(--glass);
+  background-image: radial-gradient(150% 110% at 26% -34%, var(--sheen), transparent 62%);
+  border: 1px solid var(--card-border);
+  border-top-color: var(--edge-top);
+  border-bottom-color: var(--edge-bottom);
+  box-shadow: var(--inner-light), 0 8px 20px -12px rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+
+/* 封面中央的玻璃球：球体受光和平面不同——
+   左上是一团高光，正上方一条弧形反光，下缘被桌面反上来一点光 */
+.orb {
+  position: relative;
+  background-color: var(--glass);
+  background-image:
+    radial-gradient(58% 46% at 33% 20%, rgba(255, 255, 255, 0.72), transparent 72%),
+    radial-gradient(72% 62% at 68% 92%, rgba(255, 255, 255, 0.3), transparent 74%);
+  border: 1px solid var(--card-border);
+  border-top-color: var(--edge-top);
+  border-bottom-color: var(--edge-bottom);
+  box-shadow:
+    var(--inner-light),
+    inset 0 -20px 34px -22px rgba(255, 255, 255, 0.55),
+    var(--shadow-hero);
+  -webkit-backdrop-filter: blur(20px) saturate(175%);
+  backdrop-filter: blur(20px) saturate(175%);
+}
+:root[data-theme='dark'] .orb {
+  background-image:
+    radial-gradient(58% 46% at 33% 20%, rgba(255, 255, 255, 0.16), transparent 72%),
+    radial-gradient(72% 62% at 68% 92%, rgba(255, 255, 255, 0.08), transparent 74%);
+}
+/* 浅色主题的球：不能靠白色高光（白上白看不见），
+   改用「顶上一点纯白 + 底部一圈暖褐内阴影 + 更实的落影」 */
+:root:not([data-theme='dark']) .orb {
+  border-color: rgba(60, 55, 45, 0.07);
+  border-top-color: rgba(255, 255, 255, 1);
+  background-image:
+    radial-gradient(52% 40% at 34% 16%, rgba(255, 255, 255, 0.98), transparent 72%),
+    radial-gradient(84% 70% at 50% 116%, rgba(196, 182, 160, 0.55), transparent 74%);
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -16px 26px -18px rgba(120, 104, 80, 0.4),
+    0 1px 2px rgba(92, 78, 58, 0.12),
+    0 28px 52px -18px rgba(92, 78, 58, 0.42);
+}
+
+/* 弧形反光：球面顶部的一条光带，让圆看出是立体的 */
+.orb::after {
+  content: '';
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  top: 9px;
+  height: 20%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent);
+  filter: blur(5px);
+  pointer-events: none;
+}
+:root[data-theme='dark'] .orb::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent);
+}
+
+/* 压在视频/照片上的文字：给一层极淡的光晕，避免和背景亮部打架 */
+.text-on-media {
+  text-shadow: var(--text-halo);
+}
+
+/* 字幕式局部压暗：文字直接压在高光上时，光晕救不回来，
+   需要在背后垫一层柔和的暗角，把背景「退」下去。 */
+.hero-scrim {
+  position: relative;
+}
+.hero-scrim::before {
+  content: '';
+  position: absolute;
+  inset: -24% -30%;
+  z-index: -1;
+  /* 横向通栏、上下淡出的暗带：比小椭圆更可靠，
+     不管背景哪一块亮，文字所在的这一条都被压下去 */
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--scrim) 26%,
+    var(--scrim) 74%,
+    transparent 100%
+  );
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+/* 输入框：物理上应该是「凹」的，用内阴影而不是外阴影 */
+.field {
+  background-color: var(--sunken-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: inset 0 1px 3px rgba(60, 55, 45, 0.09);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+  color: var(--fg);
+}
+.field::placeholder {
+  color: var(--fg-muted);
+  opacity: 0.75;
+}
+:root[data-theme='dark'] .field {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 实心主按钮：加一道内高光，让它看起来是凸起可按的，而不是一块色 */
+.btn-solid {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 62%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 8px 18px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* 液态进度条：从左到右由暗到亮，末端有高光，像液体而不是色块 */
+.liquid-bar {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--accent) 62%, transparent),
+    var(--accent)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+

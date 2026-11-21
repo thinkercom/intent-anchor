@@ -44,6 +44,11 @@ export function Background({ theme }: Props) {
         className="absolute inset-0"
         style={{ background: 'var(--veil)' }}
       />
+      {/* 场景光 + 暗角：没有明确光源的画面一定是平的 */}
+      <div
+        className="absolute inset-0"
+        style={{ background: 'var(--scene-light), var(--scene-vignette)' }}
+      />
     </div>
   )
 }

@@ -29,7 +29,7 @@ export function IntentEditor({ current, presets, onSet, onAddPreset }: Props) {
   }
 
   return (
-    <div className="rounded-2xl px-4 py-3.5" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+    <div className="surface rounded-2xl px-4 py-3.5">
       <div className="mb-2 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-[11px] tracking-wider" style={{ color: 'var(--fg-muted)' }}>
           <Sparkles size={13} />

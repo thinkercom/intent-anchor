@@ -21,8 +21,8 @@ export function RewardMilestone({ streak, reward, claimedTotal, onClaim }: Props
   if (!reward) {
     return (
       <div
-        className="mt-6 rounded-2xl px-5 py-4 text-center text-sm"
-        style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--fg-muted)' }}
+        className="surface mt-6 rounded-2xl px-5 py-4 text-center text-sm"
+        style={{ color: 'var(--fg-muted)' }}
       >
         奖励都兑现完了 🎉 去设置里加个新目标吧
       </div>
@@ -48,10 +48,7 @@ export function RewardMilestone({ streak, reward, claimedTotal, onClaim }: Props
 
   return (
     <>
-      <div
-        className="mt-6 rounded-2xl px-5 py-4"
-        style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
-      >
+      <div className="surface mt-6 rounded-2xl px-5 py-4">
         <div className="mb-3 flex items-center gap-2 text-xs tracking-wider" style={{ color: 'var(--fg-muted)' }}>
           <Gift size={14} />
           <span>下一个奖励 · 已兑现 {claimedTotal} 个</span>
@@ -69,8 +66,7 @@ export function RewardMilestone({ streak, reward, claimedTotal, onClaim }: Props
         {/* 进度条 */}
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--glass)' }}>
           <motion.div
-            className="h-full rounded-full"
-            style={{ background: 'var(--accent)' }}
+            className="liquid-bar h-full rounded-full"
             initial={{ width: 0 }}
             animate={{ width: `${progress * 100}%` }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
@@ -107,8 +103,7 @@ export function RewardMilestone({ streak, reward, claimedTotal, onClaim }: Props
           >
             <div className="absolute inset-0 backdrop-blur-md" style={{ background: 'var(--veil)' }} onClick={() => setShowModal(false)} />
             <motion.div
-              className="relative z-10 w-full max-w-xs rounded-3xl p-6"
-              style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow)' }}
+              className="surface surface-hero relative z-10 w-full max-w-xs rounded-3xl p-6"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0 }}

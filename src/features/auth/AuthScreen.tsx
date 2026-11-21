@@ -132,14 +132,7 @@ export function AuthScreen({ mode, onClose, onGuest, onSignedIn }: Props) {
           paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom) + 1.5rem))',
         }}
       >
-        <div
-          className="w-full max-w-xs rounded-3xl p-6"
-          style={{
-            background: 'var(--card-bg)',
-            border: '1px solid var(--card-border)',
-            boxShadow: 'var(--shadow)',
-          }}
-        >
+        <div className="surface surface-hero w-full max-w-xs rounded-3xl p-6">
           <p
             className="mb-2 text-center text-2xl"
             style={{ fontFamily: 'var(--headline-font)', color: 'var(--fg)' }}

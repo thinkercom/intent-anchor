@@ -63,8 +63,8 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         {themeMode !== 'auto' && (
           <motion.button
             onClick={onResetTheme}
-            className="rounded-full px-2.5 py-1.5 text-[10px] tracking-wider"
-            style={{ color: 'var(--fg-muted)', border: '1px solid var(--card-border)', background: 'var(--glass)' }}
+            className="glass-pill rounded-full px-2.5 py-1.5 text-[10px] tracking-wider"
+            style={{ color: 'var(--fg-muted)' }}
             whileTap={{ scale: 0.94 }}
             aria-label="恢复按时间自动切换主题"
           >
@@ -73,8 +73,8 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         )}
         <motion.button
           onClick={onToggleTheme}
-          className="flex h-9 w-9 items-center justify-center rounded-full"
-          style={{ color: 'var(--fg-muted)', border: '1px solid var(--card-border)', background: 'var(--glass)' }}
+          className="glass-pill flex h-9 w-9 items-center justify-center rounded-full"
+          style={{ color: 'var(--fg-muted)' }}
           whileTap={{ scale: 0.92 }}
           aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
           title={theme === 'dark' ? '切换到浅色' : '切换到深色'}
@@ -83,11 +83,12 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         </motion.button>
       </div>
 
-      {/* 整体略微上移，视觉更安定 */}
-      <div className="flex w-full max-w-md -translate-y-[6vh] flex-col items-center text-center">
+      {/* 整体略微上移，视觉更安定。hero-scrim 在文字背后垫一层柔和的暗角，
+          否则标题正好压在花瓣高光上，怎么加 text-shadow 都读不清 */}
+      <div className="hero-scrim flex w-full max-w-md -translate-y-[6vh] flex-col items-center text-center">
         <motion.p
-          className="mb-5 text-[11px] tracking-[0.28em] uppercase md:text-xs"
-          style={{ fontFamily: 'var(--headline-font)', color: 'var(--fg-muted)' }}
+          className="text-on-media mb-5 text-[11px] tracking-[0.28em] uppercase md:text-xs"
+          style={{ fontFamily: 'var(--headline-font)', color: 'var(--fg)', opacity: 0.62 }}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.5 }}
@@ -96,7 +97,7 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         </motion.p>
 
         <motion.h1
-          className="text-balance text-[1.7rem] leading-[1.35] tracking-tight md:text-4xl"
+          className="text-on-media -mx-2 text-balance text-[1.95rem] leading-[1.3] tracking-tight md:text-[2.6rem]"
           style={{ fontFamily: 'var(--body-font)', fontWeight: 300, color: 'var(--fg)' }}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -109,8 +110,8 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         {todayIntent ? (
           <motion.button
             onClick={() => go('habits')}
-            className="mt-7 max-w-xs rounded-full px-4 py-2 text-xs"
-            style={{ color: 'var(--fg-muted)', border: '1px solid var(--card-border)', background: 'var(--glass)' }}
+            className="glass-pill text-on-media mt-7 max-w-xs rounded-full px-4 py-2 text-xs"
+            style={{ color: 'var(--fg-muted)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.45 }}
@@ -121,7 +122,7 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         ) : (
           <motion.button
             onClick={() => go('habits')}
-            className="mt-7 rounded-full px-4 py-2 text-xs"
+            className="text-on-media mt-7 rounded-full px-4 py-2 text-xs"
             style={{ color: 'var(--fg-muted)', border: '1px dashed var(--card-border)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -132,30 +133,24 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
           </motion.button>
         )}
 
-        {/* 中心按钮 */}
+        {/* 中心按钮：玻璃球。球面受光与平面卡片不同，左上高光 + 顶部弧形反光 */}
         <motion.button
           onClick={onBegin}
-          className="mt-14 flex h-28 w-28 items-center justify-center rounded-full text-sm tracking-[0.15em] md:h-32 md:w-32"
-          style={{
-            color: 'var(--fg)',
-            border: '1px solid var(--card-border)',
-            background: 'var(--glass)',
-            backdropFilter: 'blur(8px)',
-            boxShadow: 'var(--shadow)',
-          }}
+          className="orb mt-14 flex h-28 w-28 items-center justify-center rounded-full text-sm tracking-[0.15em] md:h-32 md:w-32"
+          style={{ color: 'var(--fg)' }}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.5, type: 'spring', stiffness: 120, damping: 20 }}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.96 }}
         >
-          Begin
+          <span className="text-on-media relative z-10">Begin</span>
         </motion.button>
       </div>
 
       {/* 底部信息 */}
       <motion.div
-        className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] flex w-full items-center justify-between px-7 text-[10px] tracking-wider md:text-xs"
+        className="text-on-media absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] flex w-full items-center justify-between px-7 text-[10px] tracking-wider md:text-xs"
         style={{ color: 'var(--fg-muted)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

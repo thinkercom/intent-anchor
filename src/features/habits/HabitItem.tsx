@@ -166,25 +166,34 @@ export function HabitItem({ habit, checked, onToggle, index }: Props) {
       transition={{ duration: 0.18 }}
     >
       {/* 入场动画放在内层，避免和外层拖拽用的 y 变换打架 */}
+      {/* 未完成 = 浮起来的玻璃；已完成 = 沉下去、没有影子。
+          一整列卡片高度一致、影子一致，就是「同一个模具压出来的」。 */}
       <motion.button
         onClick={handleClick}
-        className="flex w-full items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left"
-        style={{
-          background: dragging ? 'var(--card-bg-drag, var(--card-bg))' : 'var(--card-bg)',
-          border: `1px solid ${dragging ? 'var(--accent)' : 'var(--card-border)'}`,
-          boxShadow: dragging ? 'var(--drag-shadow)' : checked ? 'none' : 'var(--shadow)',
-        }}
+        className={`flex w-full items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left ${
+          dragging ? '' : checked ? 'surface-sunken' : 'surface-quiet'
+        }`}
+        style={
+          dragging
+            ? {
+                background: 'var(--card-bg-drag)',
+                border: '1px solid var(--accent)',
+                boxShadow: 'var(--drag-shadow)',
+              }
+            : undefined
+        }
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.06, duration: 0.4 }}
         aria-label={checked ? `${habit.name}，已完成，轻触取消` : `${habit.name}，轻触打卡`}
       >
-        {/* 勾选框 */}
+        {/* 勾选框：细圈 + 极淡填充，比实心灰饼干净；已勾选时是凸起的实心片 */}
         <motion.span
-          className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+          className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
           style={{
-            border: `1.5px solid ${checked ? 'var(--accent)' : 'var(--fg-muted)'}`,
-            background: checked ? 'var(--accent)' : 'transparent',
+            border: `1px solid ${checked ? 'var(--accent)' : 'var(--circle-ring)'}`,
+            background: checked ? 'var(--accent)' : 'var(--circle-fill)',
+            boxShadow: checked ? 'var(--circle-light)' : 'inset 0 1px 1px rgba(0,0,0,0.04)',
           }}
           animate={checked ? { scale: [1, 1.18, 1] } : { scale: 1 }}
           transition={{ duration: 0.35 }}
@@ -196,7 +205,7 @@ export function HabitItem({ habit, checked, onToggle, index }: Props) {
               transition={{ type: 'spring', stiffness: 500, damping: 25 }}
               style={{ color: 'var(--bg)' }}
             >
-              <Check size={16} strokeWidth={2.5} />
+              <Check size={13} strokeWidth={3} />
             </motion.span>
           )}
         </motion.span>
