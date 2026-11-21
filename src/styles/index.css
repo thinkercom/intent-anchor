@@ -69,15 +69,13 @@
 
   /* 页面本身半透明，让背景视频的光影透上来（否则玻璃后面是空的） */
   --page-bg: linear-gradient(158deg, rgba(246, 244, 238, 0.56) 0%, rgba(228, 222, 210, 0.74) 100%);
-  --veil: rgba(244, 242, 236, 0.3);
+  --veil: rgba(244, 242, 236, 0.35);
   /* 压在视频上的文字：浅色主题给白色光晕，把字从花瓣里托起来 */
   --text-halo: 0 1px 1px rgba(255, 255, 255, 0.9), 0 2px 24px rgba(255, 255, 255, 0.6);
 
-  /* 场景光：给整个画面一个明确的光源方向（左上），
-     再在四周压一点暗，视线才会聚到中间 */
-  --scene-light: radial-gradient(80% 55% at 22% -8%, rgba(255, 250, 238, 0.7), transparent 70%);
-  --scrim: rgba(250, 248, 242, 0.2);
-  --scene-vignette: radial-gradient(120% 90% at 50% 42%, transparent 38%, rgba(60, 55, 45, 0.12) 100%);
+  /* 文字背后的一层极淡压暗（只盖文字所在的那条，别的什么都不盖）。
+     背景视频是页面的主角，除了这层和 --veil 不许再往上叠东西 */
+  --scrim: rgba(250, 248, 242, 0.14);
   /* 全屏弹层背景：必须完全不透明，否则底层页面文字会透出来 */
   --modal-bg: #f4f2ec;
 }
@@ -114,11 +112,9 @@
   --drag-shadow: 0 5px 10px rgba(0, 0, 0, 0.6), 0 30px 60px -18px rgba(0, 0, 0, 0.9);
 
   --page-bg: linear-gradient(158deg, rgba(13, 11, 22, 0.58) 0%, rgba(5, 5, 9, 0.78) 100%);
-  --veil: rgba(7, 8, 12, 0.34);
+  --veil: rgba(7, 8, 12, 0.4);
   --text-halo: 0 1px 2px rgba(0, 0, 0, 0.55), 0 2px 30px rgba(0, 0, 0, 0.6);
-  --scene-light: radial-gradient(75% 50% at 26% -10%, rgba(150, 120, 200, 0.18), transparent 72%);
-  --scrim: rgba(6, 6, 10, 0.46);
-  --scene-vignette: radial-gradient(120% 90% at 50% 40%, transparent 32%, rgba(0, 0, 0, 0.6) 100%);
+  --scrim: rgba(6, 6, 10, 0.3);
   --modal-bg: #07080c;
 
   /* 深色玻璃上的颗粒要更明显一点才看得出材质 */
