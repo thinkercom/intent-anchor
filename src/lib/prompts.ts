@@ -7,8 +7,9 @@ export const DEFAULT_PROMPTS = [
   'Before anything else — what matters now?',
 ]
 
-/** 第一行恒定文案 */
-export const HEADLINE = 'Attention is all you need'
+/** 第一行恒定文案。拆行是为了封面主视觉的换行节奏，文案本身只在这里维护一次 */
+export const HEADLINE_LINES = ['Attention', 'is all', 'you need'] as const
+export const HEADLINE = HEADLINE_LINES.join(' ')
 
 /**
  * 按日期确定性地选择今天的文案（同一天始终同一句，跨天自动轮换）。

@@ -1,13 +1,14 @@
 import { motion } from 'motion/react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { Moon, Sun } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { computeStreak } from '../../lib/date'
 import { useLogicalToday } from '../../lib/useLogicalToday'
-import { HEADLINE, promptForDate } from '../../lib/prompts'
+import { HEADLINE_LINES, promptForDate } from '../../lib/prompts'
 import type { Theme, ThemeMode } from '../../lib/useTheme'
 import type { ViewName } from '../../store/types'
+import { FlowerHeadline } from './FlowerHeadline'
+import { PixelThemeToggle } from './PixelThemeToggle'
 
 interface Props {
   onBegin: () => void
@@ -48,7 +49,7 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
       className="absolute inset-0 z-10 flex h-full w-full flex-col items-center justify-center px-6"
       // 关键：容器不做 opacity 入场，始终可见。
       // 之前用 initial={{opacity:0}} 时，从设置页重置/导入切回封面，
-      // 在 AnimatePresence mode="wait" 下新挂载的容器会卡在 opacity:0，
+      // 在 AnimatePresence 模式下新挂载的容器会卡在 opacity:0，
       // 导致「背景在、文字按钮全没了」。保留 exit 让离开仍有过渡。
       initial={false}
       animate={{ opacity: 1 }}
@@ -57,13 +58,13 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
     >
       {/* 明暗切换：默认跟随时间，点击后手动锁定；「自动」可恢复跟随时间 */}
       <div
-        className="absolute right-4 z-20 flex items-center gap-1"
+        className="absolute right-4 z-20 flex items-center gap-1.5"
         style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
       >
         {themeMode !== 'auto' && (
           <motion.button
             onClick={onResetTheme}
-            className="glass-pill rounded-full px-2.5 py-1.5 text-[10px] tracking-wider"
+            className="glass-thin rounded-full px-2.5 py-1.5 text-[10px] tracking-wider"
             style={{ color: 'var(--fg-muted)' }}
             whileTap={{ scale: 0.94 }}
             aria-label="恢复按时间自动切换主题"
@@ -71,50 +72,48 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
             自动
           </motion.button>
         )}
-        <motion.button
-          onClick={onToggleTheme}
-          className="glass-pill flex h-9 w-9 items-center justify-center rounded-full"
-          style={{ color: 'var(--fg-muted)' }}
-          whileTap={{ scale: 0.92 }}
-          aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
-          title={theme === 'dark' ? '切换到浅色' : '切换到深色'}
-        >
-          {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-        </motion.button>
+        <PixelThemeToggle theme={theme} onToggle={onToggleTheme} />
       </div>
 
-      {/* 整体略微上移，视觉更安定。hero-scrim 在文字背后垫一层柔和的暗角，
-          否则标题正好压在花瓣高光上，怎么加 text-shadow 都读不清 */}
-      <div className="hero-scrim flex w-full max-w-md -translate-y-[6vh] flex-col items-center text-center">
-        <motion.p
-          className="text-on-media mb-5 text-[11px] tracking-[0.28em] uppercase md:text-xs"
-          style={{ fontFamily: 'var(--headline-font)', color: 'var(--fg)', opacity: 0.62 }}
+      {/* 主视觉 + 今日提问。整体略上移，给 Begin 留出呼吸 */}
+      <div className="flex w-full max-w-[21rem] flex-col items-center text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.22, 0.61, 0.36, 1] }}
+        >
+          <FlowerHeadline
+            lines={[...HEADLINE_LINES]}
+            className="text-[clamp(2.5rem,12vw,3.6rem)] md:text-[4.4rem]"
+          />
+        </motion.div>
+
+        {/* 今日提问：主视觉之后的第二层，字号压到「注释」的量级，
+            但保持可读 —— 它是这个产品的真正内容，不是装饰 */}
+        <motion.div
+          className="mt-8 flex w-full flex-col items-center"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.5 }}
+          transition={{ delay: 0.16, duration: 0.6 }}
         >
-          {HEADLINE}
-        </motion.p>
-
-        <motion.h1
-          className="text-on-media -mx-2 text-balance text-[1.95rem] leading-[1.3] tracking-tight md:text-[2.6rem]"
-          style={{ fontFamily: 'var(--body-font)', fontWeight: 300, color: 'var(--fg)' }}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.14, duration: 0.5 }}
-        >
-          {prompt}
-        </motion.h1>
+          <div className="hairline w-16" />
+          <p
+            className="text-on-media mt-5 text-balance text-[0.98rem] leading-[1.7] md:text-[1.1rem]"
+            style={{ color: 'var(--fg)', opacity: 0.78 }}
+          >
+            {prompt}
+          </p>
+        </motion.div>
 
         {/* 打断回归 / 意图入口 */}
         {todayIntent ? (
           <motion.button
             onClick={() => go('habits')}
-            className="glass-pill text-on-media mt-7 max-w-xs rounded-full px-4 py-2 text-xs"
+            className="glass-thin text-on-media mt-5 max-w-full truncate rounded-full px-4 py-2 text-xs"
             style={{ color: 'var(--fg-muted)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.45 }}
+            transition={{ delay: 0.24, duration: 0.45 }}
             whileTap={{ scale: 0.97 }}
           >
             {intentPending ? '你刚才要做的是' : '今日意图'}「{todayIntent}」→
@@ -122,29 +121,29 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         ) : (
           <motion.button
             onClick={() => go('habits')}
-            className="text-on-media mt-7 rounded-full px-4 py-2 text-xs"
+            className="text-on-media mt-5 rounded-full px-4 py-2 text-xs"
             style={{ color: 'var(--fg-muted)', border: '1px dashed var(--card-border)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.45 }}
+            transition={{ delay: 0.24, duration: 0.45 }}
             whileTap={{ scale: 0.97 }}
           >
             + 设定今日意图
           </motion.button>
         )}
 
-        {/* 中心按钮：玻璃球。球面受光与平面卡片不同，左上高光 + 顶部弧形反光 */}
+        {/* 中心按钮：极薄球。球体必须留高光，但收窄到左上一点 */}
         <motion.button
           onClick={onBegin}
-          className="orb mt-14 flex h-28 w-28 items-center justify-center rounded-full text-sm tracking-[0.15em] md:h-32 md:w-32"
+          className="orb-thin mt-11 flex h-28 w-28 items-center justify-center rounded-full text-sm tracking-[0.15em] md:h-32 md:w-32"
           style={{ color: 'var(--fg)' }}
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.5, type: 'spring', stiffness: 120, damping: 20 }}
-          whileHover={{ scale: 1.04 }}
+          transition={{ delay: 0.26, duration: 0.55, type: 'spring', stiffness: 120, damping: 20 }}
+          whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.96 }}
         >
-          <span className="text-on-media relative z-10">Begin</span>
+          <span className="relative z-10">Begin</span>
         </motion.button>
       </div>
 
@@ -154,7 +153,7 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         style={{ color: 'var(--fg-muted)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.25, duration: 0.5 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
       >
         <span>{todayLabel}</span>
         <span>{streak > 0 ? `连续 ${streak} 天` : '今天开始'}</span>
