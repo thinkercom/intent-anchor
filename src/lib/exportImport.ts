@@ -117,11 +117,13 @@ export function parseImport(text: string): ImportBundle {
  * 崩溃救援都会走这里，保证进入 store 的数据结构一定可用（不合法就丢弃，而不是让页面崩）。
  */
 export function normalizeAppData(input: unknown): AppData {
-  const data = (isObject(input) ? input : {}) as Partial<AppData>
+  const data = (isObject(input) ? input : {}) as Partial<AppData> & { intent?: unknown }
   const telemetry = isObject(data.telemetry) ? data.telemetry : undefined
   return {
     schemaVersion: SCHEMA_VERSION,
-    intent: isValidIntent(data.intent) ? data.intent : null,
+    // v1 的备份文件里没有 intents，只有一条 {date, text}；这里一并兼容读取
+    intents: normalizeIntents(data.intents, data.intent),
+    intentDone: normalizeIntentDone(data.intentDone),
     intentPresets: strArray(data.intentPresets) ?? DEFAULT_PRESETS,
     customPrompts: strArray(data.customPrompts) ?? [],
     habits: normalizeHabits(data.habits),
@@ -150,13 +152,32 @@ function numArray(v: unknown): number[] | null {
 function isObject(v: unknown): boolean {
   return !!v && typeof v === 'object' && !Array.isArray(v)
 }
-function isValidIntent(v: unknown): v is AppData['intent'] {
-  return (
-    !!v &&
-    typeof v === 'object' &&
-    typeof (v as { text?: unknown }).text === 'string' &&
-    typeof (v as { date?: unknown }).date === 'string'
-  )
+
+/** 意图留档：优先读 v2 的 intents，读不到再兼容 v1 的单条 intent */
+function normalizeIntents(v: unknown, legacy: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (isObject(v)) {
+    for (const [key, val] of Object.entries(v as Record<string, unknown>)) {
+      if (typeof val === 'string' && val.trim()) out[key] = val
+    }
+  }
+  if (Object.keys(out).length === 0 && isObject(legacy)) {
+    const l = legacy as { date?: unknown; text?: unknown }
+    if (typeof l.date === 'string' && typeof l.text === 'string' && l.text.trim()) {
+      out[l.date] = l.text
+    }
+  }
+  return out
+}
+
+/** 今日专项完成记录：只认 true，其余一律丢弃 */
+function normalizeIntentDone(v: unknown): Record<string, true> {
+  const out: Record<string, true> = {}
+  if (!isObject(v)) return out
+  for (const [key, val] of Object.entries(v as Record<string, unknown>)) {
+    if (val === true) out[key] = true
+  }
+  return out
 }
 
 // ---- 结构规范化：损坏或旧版本的字段直接丢弃，避免导入后页面崩溃 ----

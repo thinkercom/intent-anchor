@@ -1,7 +1,14 @@
-export interface Intent {
-  date: string
-  text: string
-}
+/**
+ * 每日意图留档：date -> 文本。
+ *
+ * v1 时意图只有一条（`intent: {date, text}`），设新的就覆盖旧的，
+ * 结果是产品名叫 intent-anchor、但「意图」本身没有任何历史。
+ * v2 起按日期留档，历史全部保留。
+ */
+export type IntentLog = Record<string, string>
+
+/** 「今日专项」是否完成：date -> true（未完成不存 key，避免空值把地图撑起来） */
+export type IntentDoneLog = Record<string, true>
 
 export type HabitSchedule = 'daily' | 'weekly'
 
@@ -38,7 +45,10 @@ export interface Telemetry {
 
 export interface AppData {
   schemaVersion: number
-  intent: Intent | null
+  /** 每日意图留档（v2 起）。读当天意图用 intents[dateKey] */
+  intents: IntentLog
+  /** 今日专项是否完成（v2 起） */
+  intentDone: IntentDoneLog
   // 意图快捷选项（用户可自定义）
   intentPresets: string[]
   // 用户自己添加的第二行文案

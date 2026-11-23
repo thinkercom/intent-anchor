@@ -90,7 +90,10 @@ export interface BackupSummary {
   lastDay: string | null
 }
 
-type SummarySource = Pick<AppData, 'habits' | 'checkins' | 'intent' | 'customPrompts' | 'rewards'>
+type SummarySource = Pick<
+  AppData,
+  'habits' | 'checkins' | 'intents' | 'intentDone' | 'customPrompts' | 'rewards'
+>
 
 export function summarizeData(data: SummarySource): BackupSummary {
   const days = Object.keys(data.checkins).sort()
@@ -134,7 +137,9 @@ function daysSinceKey(key: string): number {
 function computeStatus(source: SummarySource, meta: BackupMeta): BackupStatus {
   const summary = summarizeData(source)
   const hasData =
-    summary.checkinCount > 0 || !!source.intent?.text || source.customPrompts.length > 0
+    summary.checkinCount > 0 ||
+    Object.keys(source.intents ?? {}).length > 0 ||
+    source.customPrompts.length > 0
 
   const daysSince = meta.lastExportAt ? daysSinceKey(meta.lastExportAt) : null
   const unbackedCheckins = Math.max(0, summary.checkinCount - meta.lastExportCheckins)
@@ -182,11 +187,12 @@ export function useBackupStatus(): BackupStatus {
   const meta = useBackupStore((s) => s.meta)
   const habits = useAppStore((s) => s.habits)
   const checkins = useAppStore((s) => s.checkins)
-  const intent = useAppStore((s) => s.intent)
+  const intents = useAppStore((s) => s.intents)
+  const intentDone = useAppStore((s) => s.intentDone)
   const customPrompts = useAppStore((s) => s.customPrompts)
   const rewards = useAppStore((s) => s.rewards)
 
-  return computeStatus({ habits, checkins, intent, customPrompts, rewards }, meta)
+  return computeStatus({ habits, checkins, intents, intentDone, customPrompts, rewards }, meta)
 }
 
 /** 状态文案（设置页 / 提示条共用） */

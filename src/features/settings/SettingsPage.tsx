@@ -103,7 +103,8 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
     if (exporting) return
     const data: AppData = {
       schemaVersion: store.schemaVersion,
-      intent: store.intent,
+      intents: store.intents,
+      intentDone: store.intentDone,
       intentPresets: store.intentPresets,
       customPrompts: store.customPrompts,
       habits: store.habits,

@@ -2,7 +2,7 @@ import { motion } from 'motion/react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useAppStore } from '../../store/useAppStore'
-import { computeStreak } from '../../lib/date'
+import { computeStreak, dayStats, prevDateKey } from '../../lib/date'
 import { useLogicalToday } from '../../lib/useLogicalToday'
 import { HEADLINE_LINES, promptForDate } from '../../lib/prompts'
 import type { Theme, ThemeMode } from '../../lib/useTheme'
@@ -22,7 +22,8 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
   const customPrompts = useAppStore((s) => s.customPrompts)
   const checkins = useAppStore((s) => s.checkins)
   const habits = useAppStore((s) => s.habits)
-  const intent = useAppStore((s) => s.intent)
+  const intents = useAppStore((s) => s.intents)
+  const intentDone = useAppStore((s) => s.intentDone)
   const setView = useAppStore((s) => s.setView)
 
   const todayKey = useLogicalToday()
@@ -33,15 +34,16 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
 
   // 打断回归：当天已设意图但未全部完成时，显示「你刚才要做的是 X」
   const doneToday = checkins[todayKey] ?? []
+  const todayIntent = intents[todayKey] ?? ''
   const intentPending =
-    intent &&
-    intent.text &&
-    intent.date === todayKey &&
-    activeIds.length > 0 &&
-    !activeIds.every((id) => doneToday.includes(id))
+    !!todayIntent && activeIds.length > 0 && !activeIds.every((id) => doneToday.includes(id))
+  const todayIntentDone = !!intentDone[todayKey]
 
-  // 当天有效意图（跨天后视为过期，不显示回归提示）
-  const todayIntent = intent && intent.date === todayKey ? intent.text : ''
+  // 昨天做到多少：把「积累」带到今天来。
+  // 只在昨天确实有打卡时显示 —— 昨天 0/5 只会平白让人泄气。
+  const yesterday = dayStats(checkins, habits, prevDateKey(todayKey))
+  const showYesterday = yesterday.done > 0
+
   const go = (view: ViewName) => setView(view)
 
   return (
@@ -116,7 +118,8 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
             transition={{ delay: 0.24, duration: 0.45 }}
             whileTap={{ scale: 0.97 }}
           >
-            {intentPending ? '你刚才要做的是' : '今日意图'}「{todayIntent}」→
+            {todayIntentDone ? '已完成' : intentPending ? '你刚才要做的是' : '今日意图'}「
+            {todayIntent}」{todayIntentDone ? '' : ' →'}
           </motion.button>
         ) : (
           <motion.button
@@ -156,7 +159,21 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         transition={{ delay: 0.3, duration: 0.5 }}
       >
         <span>{todayLabel}</span>
-        <span>{streak > 0 ? `连续 ${streak} 天` : '今天开始'}</span>
+        <span className="flex items-center gap-1.5">
+          {showYesterday && (
+            <>
+              <span>昨天 {yesterday.done}/{yesterday.total}</span>
+              {streak > 0 && <span style={{ opacity: 0.35 }}>·</span>}
+            </>
+          )}
+          {/* 「今天开始」只在真的一点记录都没有时才说。
+              昨天做过 3/4 却写着「今天开始」，读起来是自相矛盾的 */}
+          {streak > 0 ? (
+            <span>连续 {streak} 天</span>
+          ) : (
+            !showYesterday && <span>今天开始</span>
+          )}
+        </span>
       </motion.div>
     </motion.main>
   )

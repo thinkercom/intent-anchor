@@ -20,12 +20,14 @@ interface Props {
 }
 
 export function HabitPage({ onBack, onOpenSettings }: Props) {
-  const intent = useAppStore((s) => s.intent)
+  const intents = useAppStore((s) => s.intents)
+  const intentDone = useAppStore((s) => s.intentDone)
   const intentPresets = useAppStore((s) => s.intentPresets)
   const habits = useAppStore((s) => s.habits)
   const checkins = useAppStore((s) => s.checkins)
   const rewards = useAppStore((s) => s.rewards)
   const setIntent = useAppStore((s) => s.setIntent)
+  const toggleIntentDone = useAppStore((s) => s.toggleIntentDone)
   const addIntentPreset = useAppStore((s) => s.addIntentPreset)
   const setCheckin = useAppStore((s) => s.setCheckin)
   const setHabitOrder = useAppStore((s) => s.setHabitOrder)
@@ -42,13 +44,10 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
   const doneCount = (checkins[todayKey] ?? []).filter((id) => activeIds.includes(id)).length
   const reward = nextReward(rewards)
 
-  // 意图：当天有效才显示，否则沿用昨天（空则提示设定）
-  const intentText =
-    intent && intent.text
-      ? intent.date === todayKey
-        ? intent.text
-        : `${intent.text}（昨日）`
-      : ''
+  // 今日意图：v2 起按日期留档，今天没设就是空的（昨天的去历史页看，
+  // 不再像 v1 那样把「（昨日）」硬挂在今天下面，容易让人以为今天已经设过了）
+  const intentText = intents[todayKey] ?? ''
+  const focusDone = !!intentDone[todayKey]
 
   // ---- 打卡撤销 ----
   const [undo, setUndo] = useState<UndoInfo | null>(null)
@@ -196,8 +195,10 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <IntentEditor
             current={intentText}
+            done={focusDone}
             presets={intentPresets}
             onSet={setIntent}
+            onToggleDone={() => toggleIntentDone(todayKey)}
             onAddPreset={addIntentPreset}
           />
         </motion.div>

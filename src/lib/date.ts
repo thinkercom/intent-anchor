@@ -94,3 +94,35 @@ export function todayProgress(
 export function daysBetween(fromKey: string, toKey: string): number {
   return differenceInCalendarDays(dateKeyToDate(toKey), dateKeyToDate(fromKey))
 }
+
+export interface DayStats {
+  done: number
+  total: number
+  /** 0-1，total 为 0 时返回 0 */
+  ratio: number
+}
+
+/**
+ * 某一天的完成情况。
+ *
+ * 分母口径与 computeStreak 保持一致：
+ * - 只算「那天已经存在」的习惯，今天新加的习惯不会把昨天的完成率压低
+ * - 已归档的习惯不进分母，但那天如果确实打过卡，仍算分子
+ *   （用户那天真的做了，历史不该因为他后来删掉这个习惯就抹掉）
+ */
+export function dayStats(
+  checkins: Record<string, string[]>,
+  habits: Habit[],
+  key: string,
+): DayStats {
+  const done = checkins[key] ?? []
+  const relevant = habits.filter(
+    (h) => (!h.createdAt || h.createdAt <= key) && (!h.archived || done.includes(h.id)),
+  )
+  const count = relevant.filter((h) => done.includes(h.id)).length
+  return {
+    done: count,
+    total: relevant.length,
+    ratio: relevant.length ? count / relevant.length : 0,
+  }
+}

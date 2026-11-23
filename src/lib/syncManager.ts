@@ -18,7 +18,8 @@ export function startAutoSync(): void {
   unsub = useAppStore.subscribe((state, prev) => {
     if (!enabled || !state.authUser || !currentMasterKey) return
     if (
-      state.intent === prev.intent &&
+      state.intents === prev.intents &&
+      state.intentDone === prev.intentDone &&
       state.intentPresets === prev.intentPresets &&
       state.customPrompts === prev.customPrompts &&
       state.habits === prev.habits &&

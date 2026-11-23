@@ -23,7 +23,8 @@ function initialData(): AppData {
   // 返回全新对象/数组，避免重置后多个状态共享同一份常量引用
   return {
     schemaVersion: SCHEMA_VERSION,
-    intent: null,
+    intents: {},
+    intentDone: {},
     intentPresets: ['Deep work', 'Reading', 'Morning routine', 'Writing', 'Learning'],
     customPrompts: [],
     habits: DEFAULT_HABITS.map((h) => ({ ...h })),
@@ -57,7 +58,10 @@ interface AppActions {
   // 取得当前需要同步的数据快照（供同步层使用）
   getDataSnapshot: () => AppData
   // 意图
-  setIntent: (text: string) => void
+  /** 设定某天（默认今天）的意图；传空字符串等于清除当天意图 */
+  setIntent: (text: string, dateKey?: string) => void
+  /** 勾选/取消「今日专项」完成状态 */
+  toggleIntentDone: (dateKey?: string) => void
   addIntentPreset: (text: string) => void
   removeIntentPreset: (text: string) => void
   // 文案
@@ -118,7 +122,8 @@ export const useAppStore = create<AppStore>()(
         const s = get()
         return {
           schemaVersion: s.schemaVersion,
-          intent: s.intent,
+          intents: s.intents,
+          intentDone: s.intentDone,
           intentPresets: s.intentPresets,
           customPrompts: s.customPrompts,
           habits: s.habits,
@@ -129,10 +134,41 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ---- 意图 ----
-      setIntent: (text) => {
+      /**
+       * 写某天的意图（默认今天）。历史按日期留档，不再互相覆盖。
+       * 传空字符串 = 清除当天意图（连同那天的「专项完成」标记一起清，
+       * 否则会留下「已完成某件没写下的事」这种脏记录）。
+       *
+       * 同一天改文本时也清掉完成标记：完成是针对当初那个意图的，
+       * 改成新目标后还挂着勾，历史里就会出现「阅读 ✓」但其实做的是写作。
+       */
+      setIntent: (text, dateKey) => {
+        const key = dateKey ?? getLogicalDateKey()
         const t = text.trim()
-        if (!t) return
-        set({ intent: { date: getLogicalDateKey(), text: t } })
+        const intents = { ...get().intents }
+        const intentDone = { ...get().intentDone }
+
+        if (!t) {
+          if (!(key in intents) && !(key in intentDone)) return
+          delete intents[key]
+          delete intentDone[key]
+          set({ intents, intentDone })
+          return
+        }
+
+        if (intents[key] === t) return
+        intents[key] = t
+        delete intentDone[key]
+        set({ intents, intentDone })
+      },
+      toggleIntentDone: (dateKey) => {
+        const key = dateKey ?? getLogicalDateKey()
+        // 没有意图就没有「专项」可勾
+        if (!get().intents[key]) return
+        const intentDone = { ...get().intentDone }
+        if (intentDone[key]) delete intentDone[key]
+        else intentDone[key] = true
+        set({ intentDone })
       },
       addIntentPreset: (text) => {
         const t = text.trim()
@@ -273,7 +309,8 @@ export const useAppStore = create<AppStore>()(
       version: SCHEMA_VERSION,
       partialize: (state) => ({
         schemaVersion: state.schemaVersion,
-        intent: state.intent,
+        intents: state.intents,
+        intentDone: state.intentDone,
         intentPresets: state.intentPresets,
         customPrompts: state.customPrompts,
         habits: state.habits,
@@ -283,14 +320,31 @@ export const useAppStore = create<AppStore>()(
       }),
       /**
        * 版本不一致时调用（不提供的话 zustand 会直接丢弃旧数据）。
-       * 目前只有 v1，结构变化统一由下面的 merge 做字段级兜底；
-       * 将来若某版本需要真正的字段改写（重命名/拆分），在这里按 fromVersion 分支处理。
+       * 这里做**结构改写**，字段级兜底交给下面的 merge。
        */
       migrate: (persisted, fromVersion) => {
-        if (fromVersion !== SCHEMA_VERSION) {
-          console.info(`[store] 数据从 v${fromVersion} 迁移到 v${SCHEMA_VERSION}`)
+        const raw = (persisted ?? {}) as Record<string, unknown>
+        if (fromVersion === SCHEMA_VERSION) return raw as unknown as AppStore
+
+        // v1 -> v2：单条 intent 拆成按日期留档的 intents
+        if (fromVersion < 2) {
+          const legacy = raw.intent as { date?: unknown; text?: unknown } | null | undefined
+          const intents: Record<string, string> = {}
+          if (
+            legacy &&
+            typeof legacy.date === 'string' &&
+            typeof legacy.text === 'string' &&
+            legacy.text.trim()
+          ) {
+            intents[legacy.date] = legacy.text
+          }
+          raw.intents = intents
+          raw.intentDone = {}
+          delete raw.intent
         }
-        return persisted as AppStore
+
+        console.info(`[store] 数据从 v${fromVersion} 迁移到 v${SCHEMA_VERSION}`)
+        return raw as unknown as AppStore
       },
       /**
        * 每次启动读到存储都会走这里：先规范化再合并。
@@ -309,7 +363,8 @@ export const useAppStore = create<AppStore>()(
         return {
           ...current,
           ...data,
-          intent: has('intent') ? data.intent : current.intent,
+          intents: has('intents') ? data.intents : current.intents,
+          intentDone: has('intentDone') ? data.intentDone : current.intentDone,
           intentPresets: has('intentPresets') ? data.intentPresets : current.intentPresets,
           customPrompts: has('customPrompts') ? data.customPrompts : current.customPrompts,
           habits: has('habits') ? data.habits : current.habits,
