@@ -412,88 +412,120 @@ button {
   }
 }
 
-/* 极薄球：仍是球体，所以必须留高光，
-   但高光收窄到左上一个小点，其余交给背景透上来 */
+/* ---- Begin 球（封面中央那颗） ----
+   112px 的球和 46px 的按钮不是同一个东西：
+   小圆只要「边缘亮 + 一点高光」就成立，大球会被看得更久也更大，
+   任何一条不自然的环都会被读成「贴了一圈边」。
+
+   所以大球只允许一条连续的明度曲线，从中心单调走到边缘。
+   最外 2.5px 才交给 ::after 画截面反光，中间绝不再插亮带 ——
+   「亮带 / 暗缝 / 亮线」三层叠在一起，球立刻变成金属包边。
+*/
 .orb-thin {
   position: relative;
-  /* 与右上角那颗按钮同一套光学逻辑，只是尺寸放大：
-     浅色主题下白纸上的球是「放大镜」—— 中心亮、边缘一圈暗。
-     之前这里做的是「白底 + 左上高光」，在白背景上直接糊成一块白片 */
-  background-color: rgba(255, 255, 255, 0.4);
+  /* 关键教训（三次返工换来的）：
+     球背后就是一片白花瓣 —— 没有东西可透，而**任何一点白叠加都会让它更白、更实**。
+     所以这里不能「加白」，只能「不遮」：
+     底色几乎抽空，中心一点白都不给，让球内部 = 背景。
+     立体感全靠边缘那圈暗环（放大镜压在白纸上的真实现象）+ 高光 + 投影 */
+  background-color: rgba(255, 255, 255, 0.035);
   background-image:
+    /* ① 边缘暗环：唯一边界。范围收到 96% 才压到底，也就是说暗环只有 4px 宽 */
     radial-gradient(
       closest-side circle at 50% 50%,
       transparent 0%,
-      transparent 58%,
-      rgba(150, 132, 104, 0.13) 91%,
-      rgba(150, 132, 104, 0.05) 100%
+      transparent 66%,
+      rgba(112, 106, 94, 0.05) 90%,
+      rgba(112, 106, 94, 0.24) 96.5%,
+      rgba(112, 106, 94, 0.11) 100%
     ),
-    radial-gradient(56% 50% at 45% 39%, rgba(255, 255, 255, 0.88), transparent 76%),
+    /* ② 天空反光弧：只占上缘 26%，很淡。真实玻璃球顶接的是整片天，
+          所以它是一道横弧，不是一个点 —— 这条弧比任何模糊都更能说明「这是球」 */
+    radial-gradient(76% 26% at 50% -10%, rgba(255, 255, 255, 0.6), transparent 62%),
+    /* ③ 玻璃吸光：极轻地压暗一点。穿过玻璃的光会衰减，
+          这一点衰减是「厚度」的来源，比再加一层白有效得多 */
+    radial-gradient(closest-side circle at 50% 50%, rgba(170, 158, 138, 0.045) 0%, rgba(170, 158, 138, 0.05) 62%, transparent 97%),
+    /* ④ 竖向：底部接住桌面反上来的暖光 */
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.32) 0%,
-      rgba(255, 253, 246, 0.07) 55%,
-      rgba(198, 180, 150, 0.17) 100%
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0) 55%,
+      rgba(198, 180, 150, 0.07) 100%
     );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -2px 4px -2px rgba(150, 132, 104, 0.16),
-    0 1px 2px rgba(126, 106, 80, 0.14),
-    0 18px 44px -22px rgba(126, 106, 80, 0.4);
-  -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(1.02);
-  backdrop-filter: blur(18px) saturate(140%) brightness(1.02);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.32),
+    inset 0 -6px 10px -8px rgba(146, 128, 100, 0.18),
+    0 2px 4px rgba(126, 106, 80, 0.16),
+    0 26px 56px -24px rgba(126, 106, 80, 0.5);
+  /* brightness > 1：玻璃会把背后的东西提亮一点，也让它看起来是「透」的 */
+  /* brightness 压到 0.99：>1 就是提亮 = 加白 = 瓷球。
+     saturate 拉高是为了让背后花瓣那点颜色透上来，玻璃才有「活」感 */
+  -webkit-backdrop-filter: blur(15px) saturate(190%) brightness(0.99);
+  backdrop-filter: blur(15px) saturate(190%) brightness(0.99);
 }
-/* 大球必须有一颗明确的镜面高光，否则中心那块「聚光」看起来只是发白 */
+
+/* 高光必须是两层：一颗锐核 + 一圈柔晕。
+   只有柔晕是一团雾，只有锐核是一张贴纸 —— 叠起来才是球面上的反光。
+   再加一道右上小弧光：单颗高光读作圆形贴纸，两颗（一大一小）才读作球 */
 .orb-thin::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: radial-gradient(
-    26% 22% at 32% 22%,
-    rgba(255, 255, 255, 0.92) 0%,
-    rgba(255, 255, 255, 0.45) 42%,
-    transparent 74%
-  );
-}
-:root[data-theme='dark'] .orb-thin {
-  /* 暗背景上的球反过来：内部接近背景色，亮的是边缘和左上那一点。
-     原来这里是「0.045 白底 + 左上大团白光」，读起来是一块哑光圆盘 */
-  background-color: rgba(255, 255, 255, 0.022);
-  background-image:
-    radial-gradient(
-      closest-side circle at 50% 50%,
-      rgba(255, 255, 255, 0.022) 0%,
-      rgba(255, 255, 255, 0.042) 54%,
-      rgba(255, 255, 255, 0.1) 90%,
-      rgba(255, 255, 255, 0.035) 100%
-    ),
-    radial-gradient(78% 50% at 50% -14%, rgba(255, 255, 255, 0.17), transparent 64%),
-    radial-gradient(74% 26% at 50% 95%, rgba(255, 255, 255, 0.085), transparent 74%),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.042) 0%,
-      rgba(255, 255, 255, 0.002) 47%,
-      rgba(255, 255, 255, 0.028) 100%
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    inset 0 -2px 4px -2px rgba(255, 255, 255, 0.13),
-    0 1px 2px rgba(0, 0, 0, 0.55),
-    0 22px 54px -24px rgba(0, 0, 0, 0.92);
-  -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(1.1);
-  backdrop-filter: blur(18px) saturate(140%) brightness(1.1);
-}
-:root[data-theme='dark'] .orb-thin::before {
-  background: radial-gradient(
-    22% 18% at 32% 24%,
-    rgba(255, 255, 255, 0.62) 0%,
-    rgba(255, 255, 255, 0.24) 44%,
-    transparent 76%
-  );
+  background:
+    /* 锐核：必须在 78% 就收掉。拖到 100% 会糊成一个 60px 的大光团 */
+    radial-gradient(6.5% 5.5% at 30.5% 18.5%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.9) 45%, transparent 78%),
+    radial-gradient(19% 16% at 32% 21%, rgba(255, 255, 255, 0.32), transparent 70%),
+    /* 次高光：只有一颗高光读作贴纸，两颗（一大一小）才读作球 */
+    radial-gradient(4.5% 3.5% at 71% 26%, rgba(255, 255, 255, 0.62), transparent 82%),
+    /* 底部环境反弹：下缘接住桌面反上来的光，缺了它球只有上半亮，像个盖子 */
+    radial-gradient(40% 12% at 50% 96.5%, rgba(255, 255, 255, 0.28), transparent 74%);
+  /* 只动 opacity，7s 一轮。完全静止的玻璃看着就是塑料 */
+  animation: glass-breathe 7s ease-in-out infinite;
 }
 
+:root[data-theme='dark'] .orb-thin {
+  /* 暗背景上的球反过来：内部几乎等于背景，亮的是边缘和左上那一点。
+     底色再淡一档，否则一层灰会把它从「玻璃」变成「磨砂塑料」 */
+  background-color: rgba(255, 255, 255, 0.016);
+  background-image:
+    /* 一条不掉头的曲线：到边缘是最高点。中间回落会跟最外的截面环
+       夹出一道暗缝，看着就是套了两层圈 */
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      rgba(255, 255, 255, 0.008) 0%,
+      rgba(255, 255, 255, 0.018) 62%,
+      rgba(255, 255, 255, 0.04) 93%,
+      rgba(255, 255, 255, 0.075) 100%
+    ),
+    radial-gradient(78% 48% at 50% -12%, rgba(255, 255, 255, 0.16), transparent 66%),
+    radial-gradient(70% 18% at 50% 99%, rgba(255, 255, 255, 0.085), transparent 76%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.002) 46%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.14),
+    inset 0 -8px 14px -12px rgba(255, 255, 255, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 26px 60px -26px rgba(0, 0, 0, 0.95);
+  /* brightness 1.18：背后是一片暗，不抬亮的话模糊了也采不到信息 */
+  -webkit-backdrop-filter: blur(20px) saturate(150%) brightness(1.18) contrast(1.04);
+  backdrop-filter: blur(20px) saturate(150%) brightness(1.18) contrast(1.04);
+}
+
+:root[data-theme='dark'] .orb-thin::before {
+  background:
+    radial-gradient(6% 5% at 30.5% 19%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.85) 48%, transparent 80%),
+    radial-gradient(18% 15% at 32% 22%, rgba(255, 255, 255, 0.2), transparent 70%),
+    radial-gradient(4% 3.2% at 71% 26%, rgba(255, 255, 255, 0.4), transparent 82%),
+    radial-gradient(38% 11% at 50% 97%, rgba(255, 255, 255, 0.12), transparent 74%);
+}
 
 /* ---- iOS 玻璃按钮（封面右上角的明暗开关） ----
    40~46px 的圆要读成「一颗玻璃球」，关键不是加更多模糊，而是四件事：
@@ -723,39 +755,39 @@ button {
 .orb-thin::after {
   content: '';
   position: absolute;
-  inset: -0.8px;
+  inset: -0.9px;
   border-radius: inherit;
-  padding: 2px;
+  padding: 2.5px;
   pointer-events: none;
   background: conic-gradient(
     from 0deg,
     rgba(255, 255, 255, 0.09) 0deg,
     rgba(255, 255, 255, 0.04) 42deg,
     rgba(240, 246, 255, 0.012) 104deg,
-    rgba(255, 240, 214, 0.09) 164deg,
-    rgba(255, 255, 255, 0.2) 216deg,
-    rgba(214, 230, 255, 0.42) 272deg,
-    rgba(255, 255, 255, 0.8) 318deg,
-    rgba(255, 255, 255, 0.38) 346deg,
+    rgba(255, 240, 214, 0.07) 164deg,
+    rgba(255, 255, 255, 0.1) 216deg,
+    rgba(214, 230, 255, 0.26) 268deg,
+    rgba(255, 255, 255, 0.78) 316deg,
+    rgba(255, 255, 255, 0.3) 344deg,
     rgba(255, 255, 255, 0.09) 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  opacity: 0.5;
+  opacity: 0.62;
 }
 :root:not([data-theme='dark']) .orb-thin::after {
   background: conic-gradient(
     from 0deg,
-    rgba(255, 255, 255, 0.95) 0deg,
-    rgba(255, 255, 255, 0.6) 26deg,
-    rgba(176, 158, 130, 0.1) 74deg,
+    rgba(255, 255, 255, 0.62) 0deg,
+    rgba(255, 255, 255, 0.2) 22deg,
+    rgba(176, 158, 130, 0.09) 74deg,
     rgba(168, 150, 122, 0.13) 132deg,
     rgba(160, 142, 114, 0.1) 196deg,
     rgba(150, 132, 104, 0.08) 258deg,
-    rgba(255, 255, 255, 0.5) 312deg,
-    rgba(255, 255, 255, 0.95) 360deg
+    rgba(255, 255, 255, 0.24) 310deg,
+    rgba(255, 255, 255, 0.62) 360deg
   );
   opacity: 1;
 }
