@@ -401,7 +401,14 @@ button {
    改用一点点暖褐色描边当「玻璃的截面」 */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) .glass-thin {
-    border-color: rgba(255, 255, 255, 0.72);
+    border-color: rgba(255, 255, 255, 0.85);
+    /* 纯白描边压米白背景等于没有。外侧再套一圈极淡暖褐，
+       那是玻璃贴在纸上的一道接触影，也是它唯一被看见的理由 */
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.2),
+      0 0 0 1px rgba(126, 106, 80, 0.09),
+      0 2px 6px -3px rgba(126, 106, 80, 0.26);
   }
 }
 
@@ -409,34 +416,348 @@ button {
    但高光收窄到左上一个小点，其余交给背景透上来 */
 .orb-thin {
   position: relative;
-  /* 浅色主题下的球最难做：白玻璃压在米白背景上会变成一张白纸。
-     解法不是加白，而是加「暖」——一点点米黄底 + 下缘一圈暖褐内阴影，
-     球面才有弧度，才不像贴上去的圆片 */
-  background-color: rgba(255, 253, 246, 0.42);
+  /* 与右上角那颗按钮同一套光学逻辑，只是尺寸放大：
+     浅色主题下白纸上的球是「放大镜」—— 中心亮、边缘一圈暗。
+     之前这里做的是「白底 + 左上高光」，在白背景上直接糊成一块白片 */
+  background-color: rgba(255, 255, 255, 0.4);
   background-image:
-    radial-gradient(44% 38% at 34% 17%, rgba(255, 255, 255, 0.95), transparent 66%),
-    radial-gradient(78% 66% at 50% 108%, rgba(168, 148, 118, 0.22), transparent 72%);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      transparent 0%,
+      transparent 58%,
+      rgba(150, 132, 104, 0.13) 91%,
+      rgba(150, 132, 104, 0.05) 100%
+    ),
+    radial-gradient(56% 50% at 45% 39%, rgba(255, 255, 255, 0.88), transparent 76%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.32) 0%,
+      rgba(255, 253, 246, 0.07) 55%,
+      rgba(198, 180, 150, 0.17) 100%
+    );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -20px 30px -22px rgba(120, 104, 80, 0.5),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
-    0 1px 2px rgba(92, 78, 58, 0.08),
-    0 18px 44px -22px rgba(92, 78, 58, 0.38);
-  -webkit-backdrop-filter: blur(14px) saturate(150%) brightness(1.04);
-  backdrop-filter: blur(14px) saturate(150%) brightness(1.04);
+    inset 0 -2px 4px -2px rgba(150, 132, 104, 0.16),
+    0 1px 2px rgba(126, 106, 80, 0.14),
+    0 18px 44px -22px rgba(126, 106, 80, 0.4);
+  -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(1.02);
+  backdrop-filter: blur(18px) saturate(140%) brightness(1.02);
+}
+/* 大球必须有一颗明确的镜面高光，否则中心那块「聚光」看起来只是发白 */
+.orb-thin::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    26% 22% at 32% 22%,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.45) 42%,
+    transparent 74%
+  );
 }
 :root[data-theme='dark'] .orb-thin {
-  background-color: rgba(255, 255, 255, 0.045);
+  /* 暗背景上的球反过来：内部接近背景色，亮的是边缘和左上那一点。
+     原来这里是「0.045 白底 + 左上大团白光」，读起来是一块哑光圆盘 */
+  background-color: rgba(255, 255, 255, 0.022);
   background-image:
-    radial-gradient(46% 40% at 34% 18%, rgba(255, 255, 255, 0.28), transparent 68%),
-    radial-gradient(70% 60% at 62% 96%, rgba(255, 255, 255, 0.1), transparent 72%);
-  border-color: rgba(255, 255, 255, 0.24);
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      rgba(255, 255, 255, 0.022) 0%,
+      rgba(255, 255, 255, 0.042) 54%,
+      rgba(255, 255, 255, 0.1) 90%,
+      rgba(255, 255, 255, 0.035) 100%
+    ),
+    radial-gradient(78% 50% at 50% -14%, rgba(255, 255, 255, 0.17), transparent 64%),
+    radial-gradient(74% 26% at 50% 95%, rgba(255, 255, 255, 0.085), transparent 74%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.042) 0%,
+      rgba(255, 255, 255, 0.002) 47%,
+      rgba(255, 255, 255, 0.028) 100%
+    );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -14px 26px -20px rgba(255, 255, 255, 0.16),
-    0 0 0 1px rgba(0, 0, 0, 0.4),
-    0 22px 54px -24px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -2px 4px -2px rgba(255, 255, 255, 0.13),
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 22px 54px -24px rgba(0, 0, 0, 0.92);
+  -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(1.1);
+  backdrop-filter: blur(18px) saturate(140%) brightness(1.1);
+}
+:root[data-theme='dark'] .orb-thin::before {
+  background: radial-gradient(
+    22% 18% at 32% 24%,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.24) 44%,
+    transparent 76%
+  );
+}
+
+
+/* ---- iOS 玻璃按钮（封面右上角的明暗开关） ----
+   40~46px 的圆要读成「一颗玻璃球」，关键不是加更多模糊，而是四件事：
+
+   ① 边缘亮环。凸透镜会把背后的光折射汇聚到边缘，中心反而偏暗。
+      没有这圈亮边，玻璃就退化成「半透明圆片」。
+   ② 上下不对称的高光。顶部一道窄而亮、底部一道宽而弱 ——
+      这条不对称是「上面受光」的唯一线索，左右必须比上下弱。
+   ③ 外截面 + 双层投影。球和背景之间要有一道缝：
+      贴身的紧暗影负责「接地」，悬空的软影负责「浮起」。
+   ④ 极慢的镜面呼吸。完全静止的玻璃看着就是塑料。
+
+   注意：这里不能用 isolation: isolate —— 它会创建 backdrop root，
+   让 backdrop-filter 采样不到背后的视频，玻璃立刻变实心。
+   好在 backdrop-filter 本身就会创建层叠上下文，伪元素不会漏到页面外。 */
+.glass-btn {
+  position: relative;
+  border: 0;
+  /* 三层，顺序即光照顺序：内壁柔光 → 顶部弧形反光 → 竖向基础渐变。
+     中心刻意压低 —— 暗背景上的玻璃球，内部应该接近背景色，
+     亮的是边缘和左上一小块。中心发灰 = 一块塑料圆片 */
+  background-color: rgba(255, 255, 255, 0.07);
+  background-image:
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      rgba(255, 255, 255, 0.035) 0%,
+      rgba(255, 255, 255, 0.055) 52%,
+      rgba(255, 255, 255, 0.14) 88%,
+      rgba(255, 255, 255, 0.05) 100%
+    ),
+    radial-gradient(80% 52% at 50% -16%, rgba(255, 255, 255, 0.34), transparent 64%),
+    radial-gradient(74% 26% at 50% 94%, rgba(255, 255, 255, 0.4), transparent 74%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.015) 50%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+  /* 不再用一圈等亮的 1px 外线（那会读成金属包边），
+     边缘亮度交给 ::after 的定向 conic */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1.5px 1.5px -0.5px rgba(255, 255, 255, 0.3),
+    inset 1px 0 1.5px -0.5px rgba(255, 255, 255, 0.24),
+    inset -1px 0 1.5px -0.5px rgba(255, 255, 255, 0.18),
+    inset 0 0 10px 0 rgba(255, 255, 255, 0.07),
+    0 1px 2px rgba(56, 48, 36, 0.18),
+    0 7px 18px -7px rgba(56, 48, 36, 0.4);
+  -webkit-backdrop-filter: blur(16px) saturate(160%) brightness(1.03) contrast(1.05);
+  backdrop-filter: blur(16px) saturate(160%) brightness(1.03) contrast(1.05);
+}
+
+/* 镜面高光：左上偏一点点的一颗亮斑，不是均匀白边。
+   缓慢呼吸 —— 只动 opacity，不碰 transform，避免每帧重绘 */
+.glass-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* 高光两层：一颗锐核 + 一圈柔晕。
+     只有柔晕时是一团雾，只有锐核时是贴纸 —— 两层叠起来才是球面上的反光 */
+  background:
+    radial-gradient(11% 10% at 29.5% 19%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.46) 58%, transparent 100%),
+    radial-gradient(28% 24% at 31% 21%, rgba(255, 255, 255, 0.52), transparent 72%),
+    radial-gradient(54% 30% at 50% 108%, rgba(255, 255, 255, 0.26), transparent 64%);
+  animation: glass-breathe 7s ease-in-out infinite;
+}
+
+/* 边缘色散：玻璃截面会把光拆出一点冷暖差。
+   conic 渐变做环、mask 挖掉中间 —— 必须极淡，
+   一旦肉眼能明显看出颜色，就变成霓虹灯圈了 */
+.glass-btn::after {
+  content: '';
+  position: absolute;
+  inset: -0.6px;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  /* conic 的 0deg 在 12 点、顺时针走。
+     光源在左上 → 峰值必须落在 318deg 附近，不是「起点」。
+     第一版把峰值写在起点（= 左下），整颗球看起来像被从底下打光。
+     右下（90~140deg）几乎归零，边缘才会「消失」，球才有体积 */
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.1) 0deg,
+    rgba(255, 255, 255, 0.04) 42deg,
+    rgba(240, 246, 255, 0.012) 104deg,
+    rgba(255, 240, 214, 0.1) 164deg,
+    rgba(255, 255, 255, 0.22) 216deg,
+    rgba(214, 230, 255, 0.48) 272deg,
+    rgba(255, 255, 255, 0.88) 318deg,
+    rgba(255, 255, 255, 0.4) 346deg,
+    rgba(255, 255, 255, 0.08) 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.7;
+}
+
+@keyframes glass-breathe {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 深色：白玻璃压在暗背景上会发灰发脏。
+   底色压到几乎没有，让模糊进来的那点光和边缘高光干活；
+   brightness 提到 1.3，否则背后一片纯黑，模糊了也没有信息 */
+:root[data-theme='dark'] .glass-btn {
+  background-color: rgba(255, 255, 255, 0.026);
+  background-image:
+    /* 到边缘是最高点、不回落 —— 一回落就会和 1.5px 的截面环
+       之间夹出一道暗缝，整颗球看起来像套了两层金属圈 */
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      rgba(255, 255, 255, 0.022) 0%,
+      rgba(255, 255, 255, 0.032) 50%,
+      rgba(255, 255, 255, 0.072) 82%,
+      rgba(255, 255, 255, 0.115) 100%
+    ),
+    radial-gradient(80% 52% at 50% -16%, rgba(255, 255, 255, 0.2), transparent 64%),
+    /* 底部环境反弹带：球体下缘会接住桌面反上来的光，
+       横向一条很宽的弱亮带。缺了它球面只有上半有光，像个盖子 */
+    radial-gradient(74% 26% at 50% 94%, rgba(255, 255, 255, 0.115), transparent 74%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.002) 46%,
+      rgba(255, 255, 255, 0.035) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    inset 0 -1px 1px -0.5px rgba(255, 255, 255, 0.15),
+    inset 1px 0 1.5px -0.5px rgba(255, 255, 255, 0.1),
+    inset -1px 0 1.5px -0.5px rgba(255, 255, 255, 0.04),
+    inset 0 0 12px -2px rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 9px 22px -8px rgba(0, 0, 0, 0.9);
+  -webkit-backdrop-filter: blur(16px) saturate(150%) brightness(1.12) contrast(1.06);
+  backdrop-filter: blur(16px) saturate(150%) brightness(1.12) contrast(1.06);
+}
+:root[data-theme='dark'] .glass-btn::before {
+  background:
+    radial-gradient(10% 9% at 29.5% 19%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.4) 58%, transparent 100%),
+    radial-gradient(26% 22% at 31% 21%, rgba(255, 255, 255, 0.3), transparent 72%),
+    radial-gradient(54% 30% at 50% 108%, rgba(255, 255, 255, 0.08), transparent 64%);
+}
+:root[data-theme='dark'] .glass-btn::after {
+  opacity: 0.62;
+}
+
+/* 浅色：白玻璃压米白纸上，边界是这里唯一的难题。
+   只靠白环会完全消失，所以外面必须再套一圈极淡的暖褐 ——
+   那是玻璃压在纸上的一道接触影，也是它唯一能被看见的理由 */
+:root:not([data-theme='dark']) .glass-btn {
+  /* 浅色主题的光学规律和深色相反：
+     白纸上的玻璃球 = 一枚放大镜。光在中心汇聚（比纸更亮），
+     在边缘被折射偏折、背后的白纸被压缩，形成一圈「暗环」。
+     照深色那套做「中心暗 + 边缘亮」，结果就是一张白纸 ——
+     白环压在白底上等于没有，整颗球只剩一片纯白 */
+  background-color: rgba(255, 255, 255, 0.5);
+  background-image:
+    /* ① 边缘内侧的暗环：球在白纸上的唯一边界线索 */
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      transparent 0%,
+      transparent 54%,
+      rgba(150, 132, 104, 0.1) 86%,
+      rgba(150, 132, 104, 0.16) 100%
+    ),
+    /* ② 中心聚光：比背景更亮一点，球面才有「隆起」 */
+    radial-gradient(58% 52% at 46% 41%, rgba(255, 255, 255, 0.9), transparent 74%),
+    /* ③ 竖向：上部干净白，下部接住桌面反上来的暖光 */
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.34) 0%,
+      rgba(255, 253, 246, 0.08) 55%,
+      rgba(198, 180, 150, 0.16) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 1.5px rgba(150, 132, 104, 0.14),
+    0 1px 2px rgba(126, 106, 80, 0.16),
+    0 7px 18px -7px rgba(126, 106, 80, 0.34);
+}
+
+/* 浅色下的高光：只要左上那颗锐核。
+   柔晕在这边会直接铺成一块白，把刚做出来的中心亮度抹平 */
+:root:not([data-theme='dark']) .glass-btn::before {
+  background:
+    radial-gradient(10% 9% at 29.5% 19%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.55) 58%, transparent 100%),
+    radial-gradient(26% 22% at 31% 21%, rgba(255, 255, 255, 0.42), transparent 72%);
+}
+
+/* 浅色下的边缘：顶部一道白（受光），其余走暖褐（纸上的接触影）。
+   深色那套冷蓝色散在这里会变成一条明显的紫蓝边，很脏 */
+:root:not([data-theme='dark']) .glass-btn::after {
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.98) 0deg,
+    rgba(255, 255, 255, 0.7) 26deg,
+    rgba(176, 158, 130, 0.16) 74deg,
+    rgba(168, 150, 122, 0.22) 132deg,
+    rgba(160, 142, 114, 0.2) 196deg,
+    rgba(150, 132, 104, 0.14) 258deg,
+    rgba(255, 255, 255, 0.6) 312deg,
+    rgba(255, 255, 255, 0.98) 360deg
+  );
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-btn::before {
+    animation: none;
+  }
+}
+
+/* 大球的截面环：和右上角那颗按钮同一套角度逻辑，
+   只是环宽从 1.5px 加到 2px —— 112px 的球上 1px 的边根本看不见 */
+.orb-thin::after {
+  content: '';
+  position: absolute;
+  inset: -0.8px;
+  border-radius: inherit;
+  padding: 2px;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.09) 0deg,
+    rgba(255, 255, 255, 0.04) 42deg,
+    rgba(240, 246, 255, 0.012) 104deg,
+    rgba(255, 240, 214, 0.09) 164deg,
+    rgba(255, 255, 255, 0.2) 216deg,
+    rgba(214, 230, 255, 0.42) 272deg,
+    rgba(255, 255, 255, 0.8) 318deg,
+    rgba(255, 255, 255, 0.38) 346deg,
+    rgba(255, 255, 255, 0.09) 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.5;
+}
+:root:not([data-theme='dark']) .orb-thin::after {
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.95) 0deg,
+    rgba(255, 255, 255, 0.6) 26deg,
+    rgba(176, 158, 130, 0.1) 74deg,
+    rgba(168, 150, 122, 0.13) 132deg,
+    rgba(160, 142, 114, 0.1) 196deg,
+    rgba(150, 132, 104, 0.08) 258deg,
+    rgba(255, 255, 255, 0.5) 312deg,
+    rgba(255, 255, 255, 0.95) 360deg
+  );
+  opacity: 1;
 }
 
 /* 一条发丝线，用来分隔主视觉与正文 */

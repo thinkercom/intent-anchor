@@ -19,10 +19,17 @@ interface Props {
  * - 每颗粒子只算一次缓动，不读布局、不碰 DOM；
  * - canvas 按 devicePixelRatio 放大一次，绘制坐标始终用 CSS px。
  */
-const SIZE = 40 // CSS 尺寸
+const SIZE = 46 // CSS 尺寸（iOS 触控基准 44，玻璃球再留一点余量）
 const DPR = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 3)
 const STEP = 2 // 粒子边长（CSS px）
 const C = SIZE / 2
+/**
+ * 图标半径的基准值 = 按钮半径的一半左右。
+ * 之前图标占到 65%，四周几乎没有玻璃壁，整颗球被图标盖住，
+ * 看起来像一块发光的电子表；52% 才留得下「玻璃」这个主角。
+ * 下面所有半径都是 U 的倍数（按 40px 那版的 14.2:6.4 等比归一化）。
+ */
+const U = SIZE * 0.26
 
 type Icon = 'sun' | 'moon'
 
@@ -39,27 +46,33 @@ type Particle = {
   kind: 'in' | 'out'
 }
 
-/** 太阳：实心圆 + 8 根短射线 */
+/** 太阳：实心圆 + 4 根轴向短刺 */
 function isSun(x: number, y: number) {
   const dx = x - C
   const dy = y - C
-  const d = Math.hypot(dx, dy)
-  if (d <= 6.4) return true
-  if (d >= 9.4 && d <= 14.2) {
-    const step = Math.PI / 4
-    const a = Math.atan2(dy, dx)
-    const k = ((a % step) + step) % step
-    // 射线不能太粗，否则八根会连成一个环；0.15 大约 2 个像素格宽
-    return Math.min(k, step - k) < 0.15
-  }
-  return false
+  if (Math.hypot(dx, dy) <= 0.44 * U) return true
+  // 只做上下左右四根。
+  // 8 根在这个尺寸里必然碎掉：2px 的格子上，45° 方向的相邻格中心
+  // 相隔 2.83px，而射线只够 2 格，斜线退化成两个错开的小方块。
+  // 4 根各 3 格长、1 格宽，连在圆上，才是能认出来的「太阳光芒」。
+  const ax = Math.abs(dx)
+  const ay = Math.abs(dy)
+  const along = Math.max(ax, ay)
+  const across = Math.min(ax, ay)
+
+  // 轴向：4 根长刺，各 3 格
+  if (along > 0.44 * U && along <= U && across < STEP * 0.75) return true
+
+  // 对角：只放一个单格的点。
+  // 八个方向于是都有光，但斜向不会退化成「两个错开的方块」
+  return Math.abs(ax - ay) < 0.1 && ax >= 0.55 * U && ax <= 0.78 * U
 }
 
 /** 月亮：大圆挖掉一个偏左上方的圆，留下弯月 */
 function isMoon(x: number, y: number) {
   // 挖掉的那一块要偏左上，弯月才朝左上开口（和系统图标的朝向一致）
-  const inBody = Math.hypot(x - (C + 1.0), y - (C + 1.0)) <= 9.6
-  const inBite = Math.hypot(x - (C - 3.6), y - (C - 3.4)) <= 8.0
+  const inBody = Math.hypot(x - (C + 0.07 * U), y - (C + 0.07 * U)) <= 0.676 * U
+  const inBite = Math.hypot(x - (C - 0.254 * U), y - (C - 0.239 * U)) <= 0.563 * U
   return inBody && !inBite
 }
 
@@ -68,10 +81,15 @@ const hit = (icon: Icon, x: number, y: number) => (icon === 'sun' ? isSun(x, y) 
 /** 图标语义与按钮行为一致：深色时显示太阳（点了变亮） */
 const iconOf = (theme: Theme): Icon => (theme === 'dark' ? 'sun' : 'moon')
 
+/**
+ * 图标颜色按「它出现在哪种球上」定，而不是按主题切换：
+ * 太阳只在深色球上（需要够亮才浮得起来），
+ * 月亮只在浅色白球上（74% 亮度的紫压在白球上几乎看不见，必须压深）。
+ */
 const colorOf = (icon: Icon, r: number) =>
   icon === 'sun'
-    ? `hsl(${36 + r * 14} ${70 + r * 14}% ${60 + r * 12}%)`
-    : `hsl(${262 + r * 18} ${26 + r * 16}% ${74 + r * 12}%)`
+    ? `hsl(${36 + r * 7} ${80 + r * 6}% ${60 + r * 8}%)`
+    : `hsl(${262 + r * 8} ${34 + r * 8}% ${48 + r * 9}%)`
 
 /** 枚举某个图标覆盖的所有格子中心点 */
 function cells(icon: Icon) {
@@ -212,12 +230,19 @@ export function PixelThemeToggle({ theme, onToggle }: Props) {
     <button
       type="button"
       onClick={onToggle}
-      className="glass-thin flex items-center justify-center rounded-full"
+      className="glass-btn flex items-center justify-center rounded-full"
       style={{ width: SIZE, height: SIZE }}
       aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
       title={theme === 'dark' ? '切换到浅色' : '切换到深色'}
     >
-      <canvas ref={canvasRef} width={SIZE * DPR} height={SIZE * DPR} style={{ width: SIZE, height: SIZE }} />
+      {/* z-10 让图标压在两层伪元素（镜面高光 / 色散环）之上 */}
+      <canvas
+        ref={canvasRef}
+        width={SIZE * DPR}
+        height={SIZE * DPR}
+        className="relative z-10"
+        style={{ width: SIZE, height: SIZE }}
+      />
     </button>
   )
 }
