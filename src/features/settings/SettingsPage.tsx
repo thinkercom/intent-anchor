@@ -105,6 +105,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
       schemaVersion: store.schemaVersion,
       intents: store.intents,
       intentDone: store.intentDone,
+      reviewSeen: store.reviewSeen,
       intentPresets: store.intentPresets,
       customPrompts: store.customPrompts,
       habits: store.habits,

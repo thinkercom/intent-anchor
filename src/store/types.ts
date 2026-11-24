@@ -10,6 +10,14 @@ export type IntentLog = Record<string, string>
 /** 「今日专项」是否完成：date -> true（未完成不存 key，避免空值把地图撑起来） */
 export type IntentDoneLog = Record<string, true>
 
+/**
+ * 周回顾是否已经展示过：weekStart(周一) -> true。
+ *
+ * 存「已经看过」而不是「下次该看哪一周」，因为用户可能一周都没打开 App，
+ * 下次打开时该看的是「上一周」——那是相对当前时间算出来的，不需要持久化。
+ */
+export type ReviewSeenLog = Record<string, true>
+
 export type HabitSchedule = 'daily' | 'weekly'
 
 export interface Habit {
@@ -49,6 +57,8 @@ export interface AppData {
   intents: IntentLog
   /** 今日专项是否完成（v2 起） */
   intentDone: IntentDoneLog
+  /** 周回顾展示记录（v3 起） */
+  reviewSeen: ReviewSeenLog
   // 意图快捷选项（用户可自定义）
   intentPresets: string[]
   // 用户自己添加的第二行文案

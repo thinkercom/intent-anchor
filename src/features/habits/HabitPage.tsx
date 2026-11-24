@@ -3,6 +3,7 @@ import { AnimatePresence, Reorder, motion } from 'motion/react'
 import { ArrowLeft, Settings2, Flame, Plus, Sparkles, CalendarDays } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { computeStreak, todayProgress } from '../../lib/date'
+import { weekSummary } from '../../lib/stats'
 import { useLogicalToday } from '../../lib/useLogicalToday'
 import { nextReward, claimedCount } from '../../lib/rewards'
 import { useBackupStatus } from '../../lib/backup'
@@ -11,6 +12,7 @@ import { IntentEditor } from './IntentEditor'
 import { RewardMilestone } from './RewardMilestone'
 import { UndoToast } from './UndoToast'
 import { FirstRunGuide } from './FirstRunGuide'
+import { WeeklyReview } from './WeeklyReview'
 import type { Habit } from '../../store/types'
 import type { UndoInfo } from './UndoToast'
 
@@ -23,6 +25,8 @@ interface Props {
 export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
   const intents = useAppStore((s) => s.intents)
   const intentDone = useAppStore((s) => s.intentDone)
+  const reviewSeen = useAppStore((s) => s.reviewSeen)
+  const dismissReview = useAppStore((s) => s.dismissReview)
   const intentPresets = useAppStore((s) => s.intentPresets)
   const habits = useAppStore((s) => s.habits)
   const checkins = useAppStore((s) => s.checkins)
@@ -44,6 +48,11 @@ export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
   const progress = todayProgress(checkins, activeIds, todayKey)
   const doneCount = (checkins[todayKey] ?? []).filter((id) => activeIds.includes(id)).length
   const reward = nextReward(rewards)
+
+  // 上周回顾：只在「上周真动过」且「这一周还没看过」时出现。
+  // 上周一片空白时不弹——那种时候给一段总结只会像指责。
+  const week = weekSummary(checkins, habits, todayKey)
+  const showReview = week.done > 0 && week.total > 0 && !reviewSeen[week.weekStart]
 
   // 今日意图：v2 起按日期留档，今天没设就是空的（昨天的去历史页看，
   // 不再像 v1 那样把「（昨日）」硬挂在今天下面，容易让人以为今天已经设过了）
@@ -191,6 +200,17 @@ export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
             </div>
           </div>
         </motion.div>
+
+        {/* 上周回顾：放在主卡下面。它是「看一眼就走」的内容，不该挡在打卡前面 */}
+        <AnimatePresence initial={false}>
+          {showReview && (
+            <WeeklyReview
+              key={week.weekStart}
+              summary={week}
+              onDismiss={() => dismissReview(week.weekStart)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* 跨天提示：让人知道「今天」已经换了，不是数据丢了 */}
         <AnimatePresence>

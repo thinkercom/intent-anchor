@@ -20,6 +20,7 @@ export function startAutoSync(): void {
     if (
       state.intents === prev.intents &&
       state.intentDone === prev.intentDone &&
+      state.reviewSeen === prev.reviewSeen &&
       state.intentPresets === prev.intentPresets &&
       state.customPrompts === prev.customPrompts &&
       state.habits === prev.habits &&

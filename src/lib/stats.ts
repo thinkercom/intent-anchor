@@ -264,3 +264,99 @@ export function heatmapWeeks(
 export function dayLabel(key: string): string {
   return format(parseISO(key), 'M 月 d 日')
 }
+
+export interface WeekHabit {
+  name: string
+  done: number
+  total: number
+}
+
+export interface WeekSummary {
+  weekStart: string
+  weekEnd: string
+  /** 一周累计完成次数 / 应完成次数 */
+  done: number
+  total: number
+  ratio: number
+  /** 全勤天数 */
+  fullDays: number
+  /** 有记录的天数 */
+  activeDays: number
+  best: WeekHabit | null
+  worst: WeekHabit | null
+}
+
+/** 上一周（周一~周日）的日期范围。今天是周一时，上一周指刚过去的七天 */
+export function lastWeekRange(todayKey: string): { start: string; end: string } {
+  const thisMonday = mondayOf(todayKey)
+  return { start: shiftDateKey(thisMonday, -7), end: shiftDateKey(thisMonday, -1) }
+}
+
+/**
+ * 上周汇总。
+ *
+ * 分母只算「那几天已经存在的习惯」——上周三才加的习惯不应该背上周一二的账。
+ * 最稳/最易断要求一周里至少存在 4 天，否则「最稳」可能只是刚加了两天的那个。
+ */
+export function weekSummary(
+  checkins: Record<string, string[]>,
+  habits: Habit[],
+  todayKey: string,
+): WeekSummary {
+  const { start, end } = lastWeekRange(todayKey)
+  const active = habits.filter((h) => !h.archived)
+
+  let done = 0
+  let total = 0
+  let fullDays = 0
+  let activeDays = 0
+  let cursor = start
+  for (let i = 0; i < 7; i += 1) {
+    const s = dayStats(checkins, habits, cursor)
+    done += s.done
+    total += s.total
+    if ((checkins[cursor] ?? []).length) activeDays += 1
+    if (s.total > 0 && isDayComplete(checkins, habits, cursor)) fullDays += 1
+    cursor = shiftDateKey(cursor, 1)
+  }
+
+  const perHabit: WeekHabit[] = active.map((habit) => {
+    let hTotal = 0
+    let hDone = 0
+    let k = start
+    for (let i = 0; i < 7; i += 1) {
+      if (!habit.createdAt || habit.createdAt <= k) {
+        hTotal += 1
+        if ((checkins[k] ?? []).includes(habit.id)) hDone += 1
+      }
+      k = shiftDateKey(k, 1)
+    }
+    return { name: habit.name, done: hDone, total: hTotal }
+  })
+  const eligible = perHabit.filter((h) => h.total >= 4)
+
+  let best: WeekHabit | null = null
+  let worst: WeekHabit | null = null
+  if (eligible.length >= 2) {
+    const rate = (h: WeekHabit) => (h.total ? h.done / h.total : 0)
+    best = eligible.reduce((a, b) => (rate(b) > rate(a) ? b : a))
+    worst = eligible.reduce((a, b) => (rate(b) < rate(a) ? b : a))
+    // 两边差不多时不硬分高下
+    if (rate(best) - rate(worst) < 0.25) {
+      best = null
+      worst = null
+    }
+  }
+
+  return {
+    weekStart: start,
+    weekEnd: end,
+    done,
+    total,
+    ratio: total ? done / total : 0,
+    fullDays,
+    activeDays,
+    best,
+    worst,
+  }
+}

@@ -124,6 +124,7 @@ export function normalizeAppData(input: unknown): AppData {
     // v1 的备份文件里没有 intents，只有一条 {date, text}；这里一并兼容读取
     intents: normalizeIntents(data.intents, data.intent),
     intentDone: normalizeIntentDone(data.intentDone),
+    reviewSeen: normalizeTrueMap(data.reviewSeen),
     intentPresets: strArray(data.intentPresets) ?? DEFAULT_PRESETS,
     customPrompts: strArray(data.customPrompts) ?? [],
     habits: normalizeHabits(data.habits),
@@ -172,6 +173,11 @@ function normalizeIntents(v: unknown, legacy: unknown): Record<string, string> {
 
 /** 今日专项完成记录：只认 true，其余一律丢弃 */
 function normalizeIntentDone(v: unknown): Record<string, true> {
+  return normalizeTrueMap(v)
+}
+
+/** 形如 Record<key, true> 的标记表：只认 true */
+function normalizeTrueMap(v: unknown): Record<string, true> {
   const out: Record<string, true> = {}
   if (!isObject(v)) return out
   for (const [key, val] of Object.entries(v as Record<string, unknown>)) {

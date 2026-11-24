@@ -25,6 +25,7 @@ function initialData(): AppData {
     schemaVersion: SCHEMA_VERSION,
     intents: {},
     intentDone: {},
+    reviewSeen: {},
     intentPresets: ['Deep work', 'Reading', 'Morning routine', 'Writing', 'Learning'],
     customPrompts: [],
     habits: DEFAULT_HABITS.map((h) => ({ ...h })),
@@ -62,6 +63,8 @@ interface AppActions {
   setIntent: (text: string, dateKey?: string) => void
   /** 勾选/取消「今日专项」完成状态 */
   toggleIntentDone: (dateKey?: string) => void
+  /** 记住「这一周的回顾已经看过」，之后不再弹出 */
+  dismissReview: (weekStart: string) => void
   addIntentPreset: (text: string) => void
   removeIntentPreset: (text: string) => void
   // 文案
@@ -124,6 +127,7 @@ export const useAppStore = create<AppStore>()(
           schemaVersion: s.schemaVersion,
           intents: s.intents,
           intentDone: s.intentDone,
+          reviewSeen: s.reviewSeen,
           intentPresets: s.intentPresets,
           customPrompts: s.customPrompts,
           habits: s.habits,
@@ -169,6 +173,11 @@ export const useAppStore = create<AppStore>()(
         if (intentDone[key]) delete intentDone[key]
         else intentDone[key] = true
         set({ intentDone })
+      },
+      /** 关掉这一周的回顾：只记 weekStart，下周一算出来的是新的 key，自然会再出现 */
+      dismissReview: (weekStart) => {
+        if (get().reviewSeen[weekStart]) return
+        set({ reviewSeen: { ...get().reviewSeen, [weekStart]: true } })
       },
       addIntentPreset: (text) => {
         const t = text.trim()
@@ -311,6 +320,7 @@ export const useAppStore = create<AppStore>()(
         schemaVersion: state.schemaVersion,
         intents: state.intents,
         intentDone: state.intentDone,
+        reviewSeen: state.reviewSeen,
         intentPresets: state.intentPresets,
         customPrompts: state.customPrompts,
         habits: state.habits,
@@ -343,6 +353,11 @@ export const useAppStore = create<AppStore>()(
           delete raw.intent
         }
 
+        // v2 -> v3：新增周回顾展示记录，老数据里没有，初始化为空
+        if (fromVersion < 3) {
+          raw.reviewSeen = {}
+        }
+
         console.info(`[store] 数据从 v${fromVersion} 迁移到 v${SCHEMA_VERSION}`)
         return raw as unknown as AppStore
       },
@@ -365,6 +380,7 @@ export const useAppStore = create<AppStore>()(
           ...data,
           intents: has('intents') ? data.intents : current.intents,
           intentDone: has('intentDone') ? data.intentDone : current.intentDone,
+          reviewSeen: has('reviewSeen') ? data.reviewSeen : current.reviewSeen,
           intentPresets: has('intentPresets') ? data.intentPresets : current.intentPresets,
           customPrompts: has('customPrompts') ? data.customPrompts : current.customPrompts,
           habits: has('habits') ? data.habits : current.habits,
