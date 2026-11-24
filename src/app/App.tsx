@@ -9,6 +9,7 @@ import { Background } from '../features/cover/Background'
 import { CoverPage } from '../features/cover/CoverPage'
 import { ActionMenu } from '../features/action-menu/ActionMenu'
 import { HabitPage } from '../features/habits/HabitPage'
+import { HistoryPage } from '../features/history/HistoryPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { AuthScreen } from '../features/auth/AuthScreen'
 import type { ViewName } from '../store/types'
@@ -102,7 +103,15 @@ export default function App() {
           <ActionMenu key="menu" onClose={() => setView('cover')} onNavigate={navigate} />
         )}
         {view === 'habits' && (
-          <HabitPage key="habits" onBack={() => setView('menu')} onOpenSettings={() => setView('settings')} />
+          <HabitPage
+            key="habits"
+            onBack={() => setView('menu')}
+            onOpenSettings={() => setView('settings')}
+            onOpenHistory={() => setView('history')}
+          />
+        )}
+        {view === 'history' && (
+          <HistoryPage key="history" onBack={() => setView('habits')} />
         )}
         {view === 'settings' && (
           <SettingsPage

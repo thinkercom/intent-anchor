@@ -81,6 +81,12 @@
   --scrim: rgba(250, 248, 242, 0.14);
   /* 全屏弹层背景：必须完全不透明，否则底层页面文字会透出来 */
   --modal-bg: #f4f2ec;
+
+  /* 月视图里「全勤」那一天的底色。
+     浅色主题下是一块实心色（深底浅字），深色主题下反过来只给一层很淡的色——
+     深色界面上一整片亮色块比什么都刺眼，全勤应该靠「有底色」而不是「最亮」被认出来 */
+  --day-full-bg: var(--accent);
+  --day-full-fg: var(--bg);
 }
 
 :root[data-theme='dark'] {
@@ -121,6 +127,10 @@
   --flower-fill: url('./flower-dark.svg');
   --scrim: rgba(6, 6, 10, 0.3);
   --modal-bg: #07080c;
+
+  /* 深色下的全勤日：一层淡紫底 + 正常亮度的文字，不做实心色块 */
+  --day-full-bg: rgba(200, 182, 216, 0.28);
+  --day-full-fg: var(--fg);
 
   /* 深色玻璃上的颗粒要更明显一点才看得出材质 */
   --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");

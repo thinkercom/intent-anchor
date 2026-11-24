@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, Reorder, motion } from 'motion/react'
-import { ArrowLeft, Settings2, Flame, Plus, Sparkles } from 'lucide-react'
+import { ArrowLeft, Settings2, Flame, Plus, Sparkles, CalendarDays } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { computeStreak, todayProgress } from '../../lib/date'
 import { useLogicalToday } from '../../lib/useLogicalToday'
@@ -17,9 +17,10 @@ import type { UndoInfo } from './UndoToast'
 interface Props {
   onBack: () => void
   onOpenSettings: () => void
+  onOpenHistory: () => void
 }
 
-export function HabitPage({ onBack, onOpenSettings }: Props) {
+export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
   const intents = useAppStore((s) => s.intents)
   const intentDone = useAppStore((s) => s.intentDone)
   const intentPresets = useAppStore((s) => s.intentPresets)
@@ -112,27 +113,43 @@ export function HabitPage({ onBack, onOpenSettings }: Props) {
       exit={{ opacity: 0, y: 16 }}
       transition={{ duration: 0.4 }}
     >
-      {/* 顶栏 */}
-      <div className="flex items-center justify-between px-2 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+      {/* 顶栏：标题绝对居中，右侧可以随时加图标而不会把标题推歪 */}
+      <div className="relative flex items-center justify-between px-2 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <motion.button onClick={onBack} className="rounded-full p-2" style={{ color: 'var(--fg-muted)' }} whileTap={{ scale: 0.92 }} aria-label="返回">
           <ArrowLeft size={20} />
         </motion.button>
-        <span className="text-sm tracking-[0.2em]" style={{ color: 'var(--fg)' }}>习惯养成</span>
-        <motion.button
-          onClick={onOpenSettings}
-          className="relative rounded-full p-2"
-          style={{ color: 'var(--fg-muted)' }}
-          whileTap={{ scale: 0.92 }}
-          aria-label={backup.needsAttention ? '设置（有数据备份提醒）' : '设置'}
+        <span
+          className="absolute left-1/2 -translate-x-1/2 text-sm tracking-[0.2em]"
+          style={{ color: 'var(--fg)' }}
         >
-          <Settings2 size={19} />
-          {backup.needsAttention && (
-            <span
-              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full"
-              style={{ background: 'var(--warn-fg)' }}
-            />
-          )}
-        </motion.button>
+          习惯养成
+        </span>
+        <div className="flex items-center">
+          <motion.button
+            onClick={onOpenHistory}
+            className="rounded-full p-2"
+            style={{ color: 'var(--fg-muted)' }}
+            whileTap={{ scale: 0.92 }}
+            aria-label="查看历史记录"
+          >
+            <CalendarDays size={19} />
+          </motion.button>
+          <motion.button
+            onClick={onOpenSettings}
+            className="relative rounded-full p-2"
+            style={{ color: 'var(--fg-muted)' }}
+            whileTap={{ scale: 0.92 }}
+            aria-label={backup.needsAttention ? '设置（有数据备份提醒）' : '设置'}
+          >
+            <Settings2 size={19} />
+            {backup.needsAttention && (
+              <span
+                className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full"
+                style={{ background: 'var(--warn-fg)' }}
+              />
+            )}
+          </motion.button>
+        </div>
       </div>
 
       {/* 可滚动内容 */}

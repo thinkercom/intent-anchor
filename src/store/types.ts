@@ -59,4 +59,4 @@ export interface AppData {
   telemetry: Telemetry
 }
 
-export type ViewName = 'cover' | 'menu' | 'habits' | 'settings'
+export type ViewName = 'cover' | 'menu' | 'habits' | 'history' | 'settings'

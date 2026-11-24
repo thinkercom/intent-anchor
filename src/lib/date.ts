@@ -26,13 +26,37 @@ export function prevDateKey(key: string): string {
 }
 
 /**
- * 计算连续天数：从今天（或昨天，若今天尚未全部完成）往回数，
- * 连续「当天存在的习惯全部完成」的天数。漏一天即中断。
+ * 某一天是否「全勤」：那天已经存在的习惯全部完成。
+ *
+ * 这是连续天数与最长连续共用的判定，抽出来是为了两处口径永远一致——
+ * 否则历史页显示「最长 12 天」而习惯页显示「连续 7 天」，用户第一反应是数据错了。
  *
  * 边界处理：
- * - 某天只要求「那天已经存在的习惯」完成，所以今天新加的习惯不会把之前的连续记录清零
+ * - 只要求「那天已经存在的习惯」完成，今天新加的习惯不会把之前的记录清零
  * - 归档（删除）的习惯不参与，历史记录不会因为删习惯而断掉
- * - 往前数到最早的习惯创建日就停，不需要看更早的空洞
+ * - 早于最早创建日的日期一律不算（没有 createdAt 的旧数据视为「一直都存在」）
+ */
+export function isDayComplete(
+  checkins: Record<string, string[]>,
+  habits: Habit[],
+  key: string,
+): boolean {
+  const list = habits.filter((h) => !h.archived)
+  if (list.length === 0) return false
+
+  const dated = list.map((h) => h.createdAt).filter((d) => !!d)
+  const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : ''
+  if (earliest && key < earliest) return false
+
+  const existed = list.filter((h) => !h.createdAt || h.createdAt <= key)
+  if (existed.length === 0) return false
+  const done = checkins[key] ?? []
+  return existed.every((h) => done.includes(h.id))
+}
+
+/**
+ * 计算连续天数：从今天（或昨天，若今天尚未全部完成）往回数，
+ * 连续「当天存在的习惯全部完成」的天数。漏一天即中断。
  *
  * @param checkins 打卡记录
  * @param habits 全部习惯（内部自行过滤归档项）
@@ -43,21 +67,7 @@ export function computeStreak(
   habits: Habit[],
   todayKey: string,
 ): number {
-  const list = habits.filter((h) => !h.archived)
-  if (list.length === 0) return 0
-
-  // 最早创建日：往前数到这里就够了（没有 createdAt 的旧数据视为「一直都存在」）
-  const dated = list.map((h) => h.createdAt).filter((d) => !!d)
-  const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : ''
-
-  const isComplete = (key: string): boolean => {
-    if (earliest && key < earliest) return false
-    // 该逻辑日已经存在的习惯
-    const existed = list.filter((h) => !h.createdAt || h.createdAt <= key)
-    if (existed.length === 0) return false
-    const done = checkins[key] ?? []
-    return existed.every((h) => done.includes(h.id))
-  }
+  const isComplete = (key: string) => isDayComplete(checkins, habits, key)
 
   // 今天若已完成，从今天开始数；否则从昨天开始数（今天还有机会）
   let cursor = isComplete(todayKey) ? todayKey : prevDateKey(todayKey)
@@ -110,15 +120,24 @@ export interface DayStats {
  * - 已归档的习惯不进分母，但那天如果确实打过卡，仍算分子
  *   （用户那天真的做了，历史不该因为他后来删掉这个习惯就抹掉）
  */
+export function relevantHabits(
+  checkins: Record<string, string[]>,
+  habits: Habit[],
+  key: string,
+): Habit[] {
+  const done = checkins[key] ?? []
+  return habits.filter(
+    (h) => (!h.createdAt || h.createdAt <= key) && (!h.archived || done.includes(h.id)),
+  )
+}
+
 export function dayStats(
   checkins: Record<string, string[]>,
   habits: Habit[],
   key: string,
 ): DayStats {
   const done = checkins[key] ?? []
-  const relevant = habits.filter(
-    (h) => (!h.createdAt || h.createdAt <= key) && (!h.archived || done.includes(h.id)),
-  )
+  const relevant = relevantHabits(checkins, habits, key)
   const count = relevant.filter((h) => done.includes(h.id)).length
   return {
     done: count,
