@@ -9,6 +9,7 @@ import type { Theme, ThemeMode } from '../../lib/useTheme'
 import type { ViewName } from '../../store/types'
 import { FlowerHeadline } from './FlowerHeadline'
 import { PixelThemeToggle } from './PixelThemeToggle'
+import { BeginButton } from './BeginButton'
 
 interface Props {
   onBegin: () => void
@@ -135,19 +136,16 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
           </motion.button>
         )}
 
-        {/* 中心按钮：极薄球。球体必须留高光，但收窄到左上一点 */}
-        <motion.button
-          onClick={onBegin}
-          className="orb-thin mt-11 flex h-28 w-28 items-center justify-center rounded-full text-sm tracking-[0.15em] md:h-32 md:w-32"
-          style={{ color: 'var(--fg)' }}
+        {/* 中心按钮：立体键帽。入场动画放在外层容器上 ——
+            按钮自己的 transform 是「旋转 + 斜切」，被 scale 覆盖就会被摆正 */}
+        <motion.div
+          className="mt-9"
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.26, duration: 0.55, type: 'spring', stiffness: 120, damping: 20 }}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.96 }}
         >
-          <span className="relative z-10">Begin</span>
-        </motion.button>
+          <BeginButton onClick={onBegin} />
+        </motion.div>
       </div>
 
       {/* 底部信息 */}
