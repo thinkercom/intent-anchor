@@ -118,7 +118,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
     try {
       const result = await saveBackupFile(backupFilename(), exportData(data))
       if (result === 'cancelled') return
-      markExported(count)
+      markExported(data, count)
       flash(
         result === 'shared'
           ? '备份已保存'
@@ -147,7 +147,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
       )
       if (!ok) return
       store.replaceAllData(bundle.data)
-      markImported(size.checkinCount)
+      markImported(bundle.data, size.checkinCount)
       flash('导入成功，数据已恢复', 2600)
       commitAndReturn(2400)
     } catch (e) {
@@ -292,7 +292,7 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
               <TextInput value={newHabit} onChange={setNewHabit} onEnter={addHabit} placeholder="新习惯名称…" />
               <PrimaryBtn onClick={addHabit}><Plus size={16} />添加</PrimaryBtn>
             </div>
-            <Hint>第一版建议 5 个以内。删除为软删除，不影响历史连续天数。顺序在习惯页长按拖动调整。</Hint>
+            <Hint>第一版建议 5 个以内。删除后不再要求打卡，但历史仍按它当时存在计算；顺序在习惯页长按拖动调整。</Hint>
           </div>
         )}
 
@@ -612,11 +612,16 @@ function backupDesc(status: BackupStatus, cloud: boolean): string {
     )
   }
   if (status.needsAttention) {
-    return `上次备份是 ${fmtBackupTime(status.lastExportAt)}，之后新增了 ${status.unbackedCheckins} 条打卡记录。`
+    return status.unbackedCheckins > 0
+      ? `上次备份是 ${fmtBackupTime(status.lastExportAt)}，之后新增了 ${status.unbackedCheckins} 条打卡记录。`
+      : `上次备份是 ${fmtBackupTime(status.lastExportAt)}，之后有改动还没备份。`
+  }
+  if (!status.hasChanges) {
+    return `${fmtBackupTime(status.lastExportAt)} 备份，数据已是最新。`
   }
   return status.unbackedCheckins > 0
     ? `${fmtBackupTime(status.lastExportAt)} 备份，之后另有 ${status.unbackedCheckins} 条新记录，攒几天再导出一份就行。`
-    : `${fmtBackupTime(status.lastExportAt)} 备份，数据已是最新。`
+    : `${fmtBackupTime(status.lastExportAt)} 备份，之后有改动（意图、习惯或奖励），攒几天再导出一份就行。`
 }
 
 function attentionText(status: BackupStatus): string {

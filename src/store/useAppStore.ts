@@ -5,12 +5,18 @@ import { SCHEMA_VERSION, STORE_KEY } from './schema'
 import { normalizeAppData } from '../lib/exportImport'
 import { getLogicalDateKey } from '../lib/date'
 
-const DEFAULT_HABITS: Habit[] = [
-  { id: 'h1', name: '晨间伸展', schedule: 'daily', createdAt: '2026-11-19', archived: false },
-  { id: 'h2', name: '冥想 10 分钟', schedule: 'daily', createdAt: '2026-11-19', archived: false },
-  { id: 'h3', name: '阅读 20 页', schedule: 'daily', createdAt: '2026-11-19', archived: false },
-  { id: 'h4', name: '深度工作 1 小时', schedule: 'daily', createdAt: '2026-11-19', archived: false },
-  { id: 'h5', name: '睡前复盘', schedule: 'daily', createdAt: '2026-11-19', archived: false },
+/**
+ * 默认习惯只定义「是什么」，不定义「什么时候创建的」。
+ * 创建日期必须取首次打开 App 的那天：写死一个固定日期的话，
+ * 新用户一进来，本月的完成率分母就已经包含了此前的每一天，
+ * 打开就是一个「欠了几天的账」的页面；重置后还会重复出现。
+ */
+const DEFAULT_HABIT_SEEDS: ReadonlyArray<Pick<Habit, 'id' | 'name' | 'schedule'>> = [
+  { id: 'h1', name: '晨间伸展', schedule: 'daily' },
+  { id: 'h2', name: '冥想 10 分钟', schedule: 'daily' },
+  { id: 'h3', name: '阅读 20 页', schedule: 'daily' },
+  { id: 'h4', name: '深度工作 1 小时', schedule: 'daily' },
+  { id: 'h5', name: '睡前复盘', schedule: 'daily' },
 ]
 
 const DEFAULT_REWARDS: Reward[] = [
@@ -20,6 +26,7 @@ const DEFAULT_REWARDS: Reward[] = [
 ]
 
 function initialData(): AppData {
+  const today = getLogicalDateKey()
   // 返回全新对象/数组，避免重置后多个状态共享同一份常量引用
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -28,7 +35,7 @@ function initialData(): AppData {
     reviewSeen: {},
     intentPresets: ['Deep work', 'Reading', 'Morning routine', 'Writing', 'Learning'],
     customPrompts: [],
-    habits: DEFAULT_HABITS.map((h) => ({ ...h })),
+    habits: DEFAULT_HABIT_SEEDS.map((h) => ({ ...h, createdAt: today, archived: false })),
     checkins: {},
     rewards: DEFAULT_REWARDS.map((r) => ({ ...r })),
     telemetry: { openCount: 0, enterDurations: [], checkinActions: 0 },
@@ -215,8 +222,14 @@ export const useAppStore = create<AppStore>()(
         set({ habits: get().habits.map((h) => (h.id === id ? { ...h, name: t } : h)) })
       },
       removeHabit: (id) => {
-        // 软删除：标记 archived，历史打卡记录保留，避免破坏连续天数计算
-        set({ habits: get().habits.map((h) => (h.id === id ? { ...h, archived: true } : h)) })
+        // 软删除：标记 archived 并记下「哪一天开始不算数」。
+        // 只存布尔值的话，昨天是否全勤会跟着今天这次删除一起被改写。
+        const today = getLogicalDateKey()
+        set({
+          habits: get().habits.map((h) =>
+            h.id === id && !h.archived ? { ...h, archived: true, archivedAt: today } : h,
+          ),
+        })
       },
       /**
        * 拖动排序：按传入的启用习惯 id 顺序重排数组。
@@ -356,6 +369,23 @@ export const useAppStore = create<AppStore>()(
         // v2 -> v3：新增周回顾展示记录，老数据里没有，初始化为空
         if (fromVersion < 3) {
           raw.reviewSeen = {}
+        }
+
+        // v3 -> v4：习惯记录归档日期。
+        // 老数据只有 archived 布尔值，无法知道哪天删的，统一补成「迁移当天」：
+        // 从这一刻起它不再参与统计，而它存在过的那些日子仍按存在计算——
+        // 比「当作从来没存在过」或「当作一直存在」都更接近真实。
+        if (fromVersion < 4) {
+          const today = getLogicalDateKey()
+          const list = Array.isArray(raw.habits)
+            ? (raw.habits as Array<Record<string, unknown> | null>)
+            : []
+          for (const h of list) {
+            if (h && h.archived === true && typeof h.archivedAt !== 'string') {
+              h.archivedAt = today
+            }
+          }
+          raw.habits = list
         }
 
         console.info(`[store] 数据从 v${fromVersion} 迁移到 v${SCHEMA_VERSION}`)

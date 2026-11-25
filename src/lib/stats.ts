@@ -45,11 +45,12 @@ export function computeLongestStreak(
   habits: Habit[],
   todayKey: string,
 ): number {
-  const active = habits.filter((h) => !h.archived)
-  if (active.length === 0) return 0
+  if (habits.length === 0) return 0
 
+  // 起点要覆盖「已经归档的习惯」创建的那天：它们在归档之前是算数的，
+  // 只从现存习惯算起会把删除前的那段成绩整段丢掉
   const candidates = [
-    ...active.map((h) => h.createdAt).filter((d): d is string => !!d),
+    ...habits.map((h) => h.createdAt).filter((d): d is string => !!d),
     ...Object.keys(checkins),
   ]
   if (candidates.length === 0) return 0

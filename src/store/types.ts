@@ -26,6 +26,16 @@ export interface Habit {
   schedule: HabitSchedule
   createdAt: string
   archived: boolean
+  /**
+   * 归档（软删除）发生在哪个逻辑日（v4 起）。
+   *
+   * 没有它的话，「昨天是否全勤」只能用习惯**现在**的归档状态来判断——
+   * 昨天没做 B、今天把 B 删掉，昨天就凭空变成 100%，连续天数也跟着涨。
+   * 有它之后，历史按「那一天有效的习惯」算：B 在归档日之前都算数。
+   *
+   * 老数据可能只有 archived: true，迁移时补上当天日期。
+   */
+  archivedAt?: string
 }
 
 export interface Reward {

@@ -26,31 +26,41 @@ export function prevDateKey(key: string): string {
 }
 
 /**
- * 某一天是否「全勤」：那天已经存在的习惯全部完成。
+ * 某条习惯在某个逻辑日是否「有效」：那天它已经建立，且还没被归档。
+ *
+ * 这是所有历史统计的唯一口径——永远问「那天它算不算数」，
+ * 而不是「它现在还在不在」。用当下的 archived 状态去回算过去，
+ * 会让删除习惯变成改写历史：昨天没做 B，今天删掉 B，昨天就凭空成了全勤。
+ *
+ * 没有 archivedAt 的老数据（v3 及以前）不知道哪天删的，
+ * 只有那天确实打过卡才认为它当时存在：这是唯一不会凭空多算一天的近似。
+ */
+export function isHabitActiveOn(habit: Habit, key: string, done: string[] = []): boolean {
+  if (habit.createdAt && habit.createdAt > key) return false
+  if (!habit.archived) return true
+  if (habit.archivedAt) return habit.archivedAt > key
+  return done.includes(habit.id)
+}
+
+/**
+ * 某一天是否「全勤」：那天有效的习惯全部完成。
  *
  * 这是连续天数与最长连续共用的判定，抽出来是为了两处口径永远一致——
  * 否则历史页显示「最长 12 天」而习惯页显示「连续 7 天」，用户第一反应是数据错了。
  *
  * 边界处理：
- * - 只要求「那天已经存在的习惯」完成，今天新加的习惯不会把之前的记录清零
- * - 归档（删除）的习惯不参与，历史记录不会因为删习惯而断掉
- * - 早于最早创建日的日期一律不算（没有 createdAt 的旧数据视为「一直都存在」）
+ * - 只要求「那天已经存在、且尚未归档」的习惯完成；
+ *   今天新加的习惯不会把之前的记录清零，今天删掉的习惯也不会让昨天变全勤
+ * - 早于最早创建日的日期、以及一个有效习惯都没有的日期，一律不算
  */
 export function isDayComplete(
   checkins: Record<string, string[]>,
   habits: Habit[],
   key: string,
 ): boolean {
-  const list = habits.filter((h) => !h.archived)
-  if (list.length === 0) return false
-
-  const dated = list.map((h) => h.createdAt).filter((d) => !!d)
-  const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : ''
-  if (earliest && key < earliest) return false
-
-  const existed = list.filter((h) => !h.createdAt || h.createdAt <= key)
-  if (existed.length === 0) return false
   const done = checkins[key] ?? []
+  const existed = habits.filter((h) => isHabitActiveOn(h, key, done))
+  if (existed.length === 0) return false
   return existed.every((h) => done.includes(h.id))
 }
 
@@ -115,10 +125,9 @@ export interface DayStats {
 /**
  * 某一天的完成情况。
  *
- * 分母口径与 computeStreak 保持一致：
- * - 只算「那天已经存在」的习惯，今天新加的习惯不会把昨天的完成率压低
- * - 已归档的习惯不进分母，但那天如果确实打过卡，仍算分子
- *   （用户那天真的做了，历史不该因为他后来删掉这个习惯就抹掉）
+ * 分母与 computeStreak 用同一个 isHabitActiveOn：
+ * - 只算「那天有效」的习惯，今天新加的习惯不会把昨天的完成率压低
+ * - 归档发生在今天之前的习惯不进分母（历史那天它还算数，归档之后就不算了）
  */
 export function relevantHabits(
   checkins: Record<string, string[]>,
@@ -126,9 +135,7 @@ export function relevantHabits(
   key: string,
 ): Habit[] {
   const done = checkins[key] ?? []
-  return habits.filter(
-    (h) => (!h.createdAt || h.createdAt <= key) && (!h.archived || done.includes(h.id)),
-  )
+  return habits.filter((h) => isHabitActiveOn(h, key, done))
 }
 
 export function dayStats(

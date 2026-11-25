@@ -124,7 +124,7 @@ export async function exportRescueBackup(): Promise<SaveResult> {
   const content = exportData(data)
   const result = await saveBackupFile(backupFilename(), content)
   if (result !== 'cancelled') {
-    markExported(summarizeData(data).checkinCount)
+    markExported(data, summarizeData(data).checkinCount)
   }
   return result
 }

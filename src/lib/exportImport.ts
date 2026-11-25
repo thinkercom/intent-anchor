@@ -201,6 +201,9 @@ function normalizeHabits(v: unknown): Habit[] {
       schedule: h.schedule === 'weekly' ? 'weekly' : 'daily',
       createdAt: typeof h.createdAt === 'string' ? h.createdAt : '',
       archived: h.archived === true,
+      // 归档日期缺失 = 不知道哪天删的，交给 isHabitActiveOn 用「那天打过卡没有」兜底；
+      // 不要在这里补今天，导入是「把别人的历史搬过来」，不能改写它
+      archivedAt: typeof h.archivedAt === 'string' && h.archivedAt ? h.archivedAt : undefined,
     })
   }
   return out
