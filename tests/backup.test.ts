@@ -34,6 +34,7 @@ const base = {
   intentPresets: ['Deep work'],
   customPrompts: ['今天要做什么？'],
   rewards: [{ id: 'r1', threshold: 7, label: '咖啡', category: '小奖励', claimed: false }],
+  dayCloses: { '2026-11-24': { note: '明天继续', at: '2026-11-24T14:00:00.000Z' } },
 }
 
 const d0 = dataDigest(base)
@@ -63,6 +64,14 @@ check(
 check(
   '改习惯顺序 → 指纹变（顺序本身也是数据）',
   dataDigest({ ...base, habits: [base.habits[1], base.habits[0]] }) !== d0,
+  true,
+)
+check(
+  '改收尾留言 → 指纹变（那是用户亲手写的）',
+  dataDigest({
+    ...base,
+    dayCloses: { '2026-11-24': { note: '改成另一句', at: '2026-11-24T14:00:00.000Z' } },
+  }) !== d0,
   true,
 )
 

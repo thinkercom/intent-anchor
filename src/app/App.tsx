@@ -9,6 +9,7 @@ import { Background } from '../features/cover/Background'
 import { CoverPage } from '../features/cover/CoverPage'
 import { ActionMenu } from '../features/action-menu/ActionMenu'
 import { HabitPage } from '../features/habits/HabitPage'
+import { DayClosing } from '../features/closing/DayClosing'
 import { HistoryPage } from '../features/history/HistoryPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { AuthScreen } from '../features/auth/AuthScreen'
@@ -29,6 +30,8 @@ export default function App() {
   const recordedRef = useRef(false)
   const authCheckedRef = useRef(false)
   const [authPanel, setAuthPanel] = useState<AuthPanel>(null)
+  // 收尾面板是全局的：封面和习惯页都可能是「今天的最后一个动作」发生的地方
+  const [closingOpen, setClosingOpen] = useState(false)
 
   // 统一处理登录成功：交给 store + 同步层
   const applySignedIn = (user: AuthUser) => {
@@ -93,6 +96,7 @@ export default function App() {
           <CoverPage
             key="cover"
             onBegin={handleBegin}
+            onOpenClosing={() => setClosingOpen(true)}
             theme={theme}
             themeMode={themeMode}
             onToggleTheme={toggleTheme}
@@ -108,6 +112,7 @@ export default function App() {
             onBack={() => setView('menu')}
             onOpenSettings={() => setView('settings')}
             onOpenHistory={() => setView('history')}
+            onOpenClosing={() => setClosingOpen(true)}
           />
         )}
         {view === 'history' && (
@@ -123,6 +128,11 @@ export default function App() {
             onLogoutDone={handleLogoutDone}
           />
         )}
+      </AnimatePresence>
+
+      {/* 收尾：叠在页面之上、登录之下。它的存在不依赖当前在哪一页 */}
+      <AnimatePresence>
+        {closingOpen && <DayClosing key="closing" onClose={() => setClosingOpen(false)} />}
       </AnimatePresence>
 
       {/* 登录 / 绑定覆盖层：仅 WorkBuddy 云版本显示；EdgeOne 静态版为游客模式 */}

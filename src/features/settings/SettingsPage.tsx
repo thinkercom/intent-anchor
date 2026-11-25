@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
-import type { AppData } from '../../store/types'
 import { exportData, parseImport, saveBackupFile, backupFilename } from '../../lib/exportImport'
 import {
   useBackupStatus,
@@ -101,18 +100,9 @@ export function SettingsPage({ onBack, onDataApplied, onRequestLogin, onRequestB
   // ---- 数据 ----
   const handleExport = async () => {
     if (exporting) return
-    const data: AppData = {
-      schemaVersion: store.schemaVersion,
-      intents: store.intents,
-      intentDone: store.intentDone,
-      reviewSeen: store.reviewSeen,
-      intentPresets: store.intentPresets,
-      customPrompts: store.customPrompts,
-      habits: store.habits,
-      checkins: store.checkins,
-      rewards: store.rewards,
-      telemetry: store.telemetry,
-    }
+    // 用 store 的统一快照，而不是在这里手写一遍字段：
+    // 之前每加一个数据字段（收尾记录就是），这里就要跟着改，漏一个就导出缺一块。
+    const data = store.getDataSnapshot()
     const count = summarizeData(data).checkinCount
     setExporting(true)
     try {

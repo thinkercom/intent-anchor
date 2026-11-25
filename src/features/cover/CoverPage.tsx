@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useAppStore } from '../../store/useAppStore'
 import { computeStreak, dayStats, prevDateKey } from '../../lib/date'
+import { hasDayActivity } from '../../lib/stats'
 import { useLogicalToday } from '../../lib/useLogicalToday'
 import { HEADLINE_LINES, promptForDate } from '../../lib/prompts'
 import type { Theme, ThemeMode } from '../../lib/useTheme'
@@ -13,18 +14,27 @@ import { BeginButton } from './BeginButton'
 
 interface Props {
   onBegin: () => void
+  onOpenClosing: () => void
   theme: Theme
   themeMode: ThemeMode
   onToggleTheme: () => void
   onResetTheme: () => void
 }
 
-export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetTheme }: Props) {
+export function CoverPage({
+  onBegin,
+  onOpenClosing,
+  theme,
+  themeMode,
+  onToggleTheme,
+  onResetTheme,
+}: Props) {
   const customPrompts = useAppStore((s) => s.customPrompts)
   const checkins = useAppStore((s) => s.checkins)
   const habits = useAppStore((s) => s.habits)
   const intents = useAppStore((s) => s.intents)
   const intentDone = useAppStore((s) => s.intentDone)
+  const dayCloses = useAppStore((s) => s.dayCloses)
   const setView = useAppStore((s) => s.setView)
 
   const todayKey = useLogicalToday()
@@ -44,6 +54,18 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
   // 只在昨天确实有打卡时显示 —— 昨天 0/5 只会平白让人泄气。
   const yesterday = dayStats(checkins, habits, prevDateKey(todayKey))
   const showYesterday = yesterday.done > 0
+
+  // 收尾：今天动过才给入口，动过之后也可以把这一天合上。
+  // 已收尾则不再显示入口，只留一行状态 —— 同一天重复问「要结束今天吗」是催。
+  const closedToday = !!dayCloses[todayKey]
+  const canClose = !closedToday && hasDayActivity(checkins, todayKey, intentDone)
+
+  // 收尾之后显示「自己刚写的那句」，而不是昨天那句：
+  // 刚写完就把页面上的话换回旧的，会让人以为没存上。
+  // 没写过就继续显示昨天留下的 —— 它才是这一天真正的开头。
+  const carriedNote = closedToday
+    ? (dayCloses[todayKey]?.note?.trim() ?? '')
+    : (dayCloses[prevDateKey(todayKey)]?.note?.trim() ?? '')
 
   const go = (view: ViewName) => setView(view)
 
@@ -146,32 +168,66 @@ export function CoverPage({ onBegin, theme, themeMode, onToggleTheme, onResetThe
         >
           <BeginButton onClick={onBegin} />
         </motion.div>
+
+        {/* 收尾：与 Begin 共用一条竖轴、同一个位置，一天有开就有关。
+            刻意做成 11px 无边框文字 —— 它是旁白，不是第二个按钮。
+            已收尾时同一位置换成状态，让「今天合上了」这件事留在页面上。 */}
+        <motion.div
+          className="mt-5 h-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.34, duration: 0.5 }}
+        >
+          {closedToday || canClose ? (
+            <motion.button
+              onClick={onOpenClosing}
+              className="text-on-media text-[11px] tracking-wider"
+              style={{ color: 'var(--fg-muted)', opacity: closedToday ? 0.7 : 1 }}
+              whileTap={{ scale: 0.96 }}
+            >
+              {closedToday ? '今天已收尾' : '今天到此为止'}
+            </motion.button>
+          ) : null}
+        </motion.div>
       </div>
 
       {/* 底部信息 */}
       <motion.div
-        className="text-on-media absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] flex w-full items-center justify-between px-7 text-[10px] tracking-wider md:text-xs"
+        className="text-on-media absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] flex w-full flex-col items-center gap-2.5 px-7"
         style={{ color: 'var(--fg-muted)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.5 }}
       >
-        <span>{todayLabel}</span>
-        <span className="flex items-center gap-1.5">
-          {showYesterday && (
-            <>
-              <span>昨天 {yesterday.done}/{yesterday.total}</span>
-              {streak > 0 && <span style={{ opacity: 0.35 }}>·</span>}
-            </>
-          )}
-          {/* 「今天开始」只在真的一点记录都没有时才说。
-              昨天做过 3/4 却写着「今天开始」，读起来是自相矛盾的 */}
-          {streak > 0 ? (
-            <span>连续 {streak} 天</span>
-          ) : (
-            !showYesterday && <span>今天开始</span>
-          )}
-        </span>
+        {/* 昨天收尾时留给今天的那句话。
+            没有这一行，收尾输入框就是写进黑洞——用户不会第二次打开它。 */}
+        {carriedNote && (
+          <p
+            className="line-clamp-2 max-w-[19rem] text-balance text-center text-[11px] leading-relaxed md:text-[12px]"
+            style={{ color: 'var(--fg)', opacity: 0.62 }}
+            title={carriedNote}
+          >
+            「{carriedNote}」
+          </p>
+        )}
+        <div className="flex w-full items-center justify-between text-[10px] tracking-wider md:text-xs">
+          <span>{todayLabel}</span>
+          <span className="flex items-center gap-1.5">
+            {showYesterday && (
+              <>
+                <span>昨天 {yesterday.done}/{yesterday.total}</span>
+                {streak > 0 && <span style={{ opacity: 0.35 }}>·</span>}
+              </>
+            )}
+            {/* 「今天开始」只在真的一点记录都没有时才说。
+                昨天做过 3/4 却写着「今天开始」，读起来是自相矛盾的 */}
+            {streak > 0 ? (
+              <span>连续 {streak} 天</span>
+            ) : (
+              !showYesterday && <span>今天开始</span>
+            )}
+          </span>
+        </div>
       </motion.div>
     </motion.main>
   )

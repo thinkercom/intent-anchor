@@ -13,6 +13,20 @@ export function weekdayOf(key: string): number {
   return parseISO(key).getDay()
 }
 
+/**
+ * 今天有没有「值得收尾」的内容：打过卡，或勾了今日意图。
+ *
+ * 收尾入口只在这之后出现。一天什么都没做的时候递上一句「结束今天」，
+ * 读起来就是在提醒你今天又废了；那种日子最好的处理方式是安静地过去。
+ */
+export function hasDayActivity(
+  checkins: Record<string, string[]>,
+  todayKey: string,
+  intentDone: Record<string, true>,
+): boolean {
+  return (checkins[todayKey]?.length ?? 0) > 0 || !!intentDone[todayKey]
+}
+
 /** 该日期所在周的周一 */
 export function mondayOf(key: string): string {
   return shiftDateKey(key, -((weekdayOf(key) + 6) % 7))

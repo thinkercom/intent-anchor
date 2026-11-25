@@ -3,7 +3,7 @@ import { AnimatePresence, Reorder, motion } from 'motion/react'
 import { ArrowLeft, Settings2, Flame, Plus, Sparkles, CalendarDays } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { computeStreak, todayProgress } from '../../lib/date'
-import { weekSummary } from '../../lib/stats'
+import { weekSummary, hasDayActivity } from '../../lib/stats'
 import { useLogicalToday } from '../../lib/useLogicalToday'
 import { nextReward, claimedCount } from '../../lib/rewards'
 import { useBackupStatus } from '../../lib/backup'
@@ -20,9 +20,10 @@ interface Props {
   onBack: () => void
   onOpenSettings: () => void
   onOpenHistory: () => void
+  onOpenClosing: () => void
 }
 
-export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
+export function HabitPage({ onBack, onOpenSettings, onOpenHistory, onOpenClosing }: Props) {
   const intents = useAppStore((s) => s.intents)
   const intentDone = useAppStore((s) => s.intentDone)
   const reviewSeen = useAppStore((s) => s.reviewSeen)
@@ -31,6 +32,7 @@ export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
   const habits = useAppStore((s) => s.habits)
   const checkins = useAppStore((s) => s.checkins)
   const rewards = useAppStore((s) => s.rewards)
+  const dayCloses = useAppStore((s) => s.dayCloses)
   const setIntent = useAppStore((s) => s.setIntent)
   const toggleIntentDone = useAppStore((s) => s.toggleIntentDone)
   const addIntentPreset = useAppStore((s) => s.addIntentPreset)
@@ -58,6 +60,10 @@ export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
   // 不再像 v1 那样把「（昨日）」硬挂在今天下面，容易让人以为今天已经设过了）
   const intentText = intents[todayKey] ?? ''
   const focusDone = !!intentDone[todayKey]
+
+  // 收尾：今天动过才给入口；已收尾则只留状态，点开可以改留言或撤销
+  const closedToday = !!dayCloses[todayKey]
+  const canClose = !closedToday && hasDayActivity(checkins, todayKey, intentDone)
 
   // ---- 打卡撤销 ----
   const [undo, setUndo] = useState<UndoInfo | null>(null)
@@ -294,6 +300,23 @@ export function HabitPage({ onBack, onOpenSettings, onOpenHistory }: Props) {
           claimedTotal={claimedCount(rewards)}
           onClaim={claimReward}
         />
+
+        {/* 收尾：整屏滚到最后，正好落在一天的末尾。
+            不做成卡片 —— 它是这一页的句号，不是又一张要读的内容。
+            没动过的日子这里什么都不显示：不记录的那天，不该被点名。 */}
+        {(canClose || closedToday) && (
+          <div className="mt-9 flex flex-col items-center">
+            <div className="hairline mb-4 w-14" aria-hidden="true" />
+            <motion.button
+              onClick={onOpenClosing}
+              className="text-[11px] tracking-wider"
+              style={{ color: 'var(--fg-muted)' }}
+              whileTap={{ scale: 0.96 }}
+            >
+              {closedToday ? '今天已收尾 · 改一句' : '今天到此为止'}
+            </motion.button>
+          </div>
+        )}
       </div>
 
       {/* 打卡撤销：误触不用去设置里找开关 */}

@@ -21,6 +21,9 @@ export function startAutoSync(): void {
       state.intents === prev.intents &&
       state.intentDone === prev.intentDone &&
       state.reviewSeen === prev.reviewSeen &&
+      // 收尾留言也要能同步：漏了这一项，改完留言不会触发写回，
+      // 换设备打开就少一句 —— 而且界面上完全看不出来是怎么回事
+      state.dayCloses === prev.dayCloses &&
       state.intentPresets === prev.intentPresets &&
       state.customPrompts === prev.customPrompts &&
       state.habits === prev.habits &&

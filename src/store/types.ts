@@ -18,6 +18,26 @@ export type IntentDoneLog = Record<string, true>
  */
 export type ReviewSeenLog = Record<string, true>
 
+/**
+ * 一天的收尾记录（v5 起）。
+ *
+ * 产品里所有的动作原本都指向「开始」：打开 → 声明意图 → 打卡。
+ * 一天没有结尾，就只有两种结局——做完了，或者没做完。没做完的那天，
+ * 用户会干脆不再打开，因为页面上没有任何一个动作能结束它。
+ *
+ * 收尾提供的是第三种结局：承认今天到此为止。它不修改任何打卡数据，
+ * 只是给这一天盖一个「已经结束」的章，并把一句话带到明天。
+ */
+export interface DayClose {
+  /** 留一句给明天。可以为空——只盖章不留言也是完整的收尾 */
+  note: string
+  /** 收尾时刻（ISO），用于知道是当晚收的，还是第二天早上才补上的 */
+  at: string
+}
+
+/** 每日收尾留档：date -> DayClose */
+export type DayCloseLog = Record<string, DayClose>
+
 export type HabitSchedule = 'daily' | 'weekly'
 
 export interface Habit {
@@ -69,6 +89,8 @@ export interface AppData {
   intentDone: IntentDoneLog
   /** 周回顾展示记录（v3 起） */
   reviewSeen: ReviewSeenLog
+  /** 每日收尾记录（v5 起） */
+  dayCloses: DayCloseLog
   // 意图快捷选项（用户可自定义）
   intentPresets: string[]
   // 用户自己添加的第二行文案

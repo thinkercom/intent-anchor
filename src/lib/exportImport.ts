@@ -1,4 +1,4 @@
-import type { AppData, Habit, Reward } from '../store/types'
+import type { AppData, DayClose, Habit, Reward } from '../store/types'
 import { SCHEMA_VERSION } from '../store/schema'
 
 const EXPORT_KEY = 'intent-anchor'
@@ -125,6 +125,7 @@ export function normalizeAppData(input: unknown): AppData {
     intents: normalizeIntents(data.intents, data.intent),
     intentDone: normalizeIntentDone(data.intentDone),
     reviewSeen: normalizeTrueMap(data.reviewSeen),
+    dayCloses: normalizeDayCloses(data.dayCloses),
     intentPresets: strArray(data.intentPresets) ?? DEFAULT_PRESETS,
     customPrompts: strArray(data.customPrompts) ?? [],
     habits: normalizeHabits(data.habits),
@@ -182,6 +183,27 @@ function normalizeTrueMap(v: unknown): Record<string, true> {
   if (!isObject(v)) return out
   for (const [key, val] of Object.entries(v as Record<string, unknown>)) {
     if (val === true) out[key] = true
+  }
+  return out
+}
+
+/**
+ * 每日收尾记录：date -> { note, at }。
+ *
+ * 只认结构完整的项：note 必须是字符串（允许空串——只盖章不留言是合法状态）。
+ * at 缺失时用空串占位而不是丢弃整条：留言是用户写下的东西，比时间戳重要得多。
+ */
+function normalizeDayCloses(v: unknown): Record<string, DayClose> {
+  const out: Record<string, DayClose> = {}
+  if (!isObject(v)) return out
+  for (const [key, val] of Object.entries(v as Record<string, unknown>)) {
+    if (!isObject(val)) continue
+    const d = val as Partial<DayClose>
+    if (typeof d.note !== 'string') continue
+    out[key] = {
+      note: d.note.slice(0, 200),
+      at: typeof d.at === 'string' ? d.at : '',
+    }
   }
   return out
 }

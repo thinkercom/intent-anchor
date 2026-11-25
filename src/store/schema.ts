@@ -7,7 +7,7 @@
  * - 备份文件的 `schemaVersion`、store 持久化版本、导入校验都用这一个值，
  *   不要在别处再写死数字（以前导入模块和 store 各写了一份，改版本时容易漏）。
  */
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 /** Zustand persist 的 localStorage 键；崩溃救援等需要直读原始数据的地方共用 */
 export const STORE_KEY = 'intent-anchor-store'

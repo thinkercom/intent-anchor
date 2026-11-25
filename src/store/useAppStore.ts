@@ -33,6 +33,7 @@ function initialData(): AppData {
     intents: {},
     intentDone: {},
     reviewSeen: {},
+    dayCloses: {},
     intentPresets: ['Deep work', 'Reading', 'Morning routine', 'Writing', 'Learning'],
     customPrompts: [],
     habits: DEFAULT_HABIT_SEEDS.map((h) => ({ ...h, createdAt: today, archived: false })),
@@ -72,6 +73,13 @@ interface AppActions {
   toggleIntentDone: (dateKey?: string) => void
   /** 记住「这一周的回顾已经看过」，之后不再弹出 */
   dismissReview: (weekStart: string) => void
+  /**
+   * 收尾：给某一天盖章，并可选留一句给明天。
+   * 不写日期时收的是今天。重复调用只更新留言，不会覆盖原来的收尾时刻。
+   */
+  closeDay: (note?: string, dateKey?: string) => void
+  /** 撤销收尾（误触时用）。只是拿掉这天的章，不动任何打卡记录 */
+  reopenDay: (dateKey?: string) => void
   addIntentPreset: (text: string) => void
   removeIntentPreset: (text: string) => void
   // 文案
@@ -135,6 +143,7 @@ export const useAppStore = create<AppStore>()(
           intents: s.intents,
           intentDone: s.intentDone,
           reviewSeen: s.reviewSeen,
+          dayCloses: s.dayCloses,
           intentPresets: s.intentPresets,
           customPrompts: s.customPrompts,
           habits: s.habits,
@@ -185,6 +194,34 @@ export const useAppStore = create<AppStore>()(
       dismissReview: (weekStart) => {
         if (get().reviewSeen[weekStart]) return
         set({ reviewSeen: { ...get().reviewSeen, [weekStart]: true } })
+      },
+      /**
+       * 收尾。
+       *
+       * 只追加一条记录，不改打卡、不改意图、不改连续天数——
+       * 这一点是刻意的：如果收尾能修改数据，它就会变成又一个「必须做对」的任务，
+       * 而它存在的意义恰恰是「今天不管做到几分，都可以到此为止」。
+       *
+       * 重复调用保留首次的 at：用户回头改留言，不代表这一天被重新收尾了一次。
+       */
+      closeDay: (note, dateKey) => {
+        const key = dateKey ?? getLogicalDateKey()
+        const prev = get().dayCloses[key]
+        const text = (note ?? prev?.note ?? '').trim()
+        if (prev && prev.note === text) return
+        set({
+          dayCloses: {
+            ...get().dayCloses,
+            [key]: { note: text, at: prev?.at ?? new Date().toISOString() },
+          },
+        })
+      },
+      reopenDay: (dateKey) => {
+        const key = dateKey ?? getLogicalDateKey()
+        if (!get().dayCloses[key]) return
+        const dayCloses = { ...get().dayCloses }
+        delete dayCloses[key]
+        set({ dayCloses })
       },
       addIntentPreset: (text) => {
         const t = text.trim()
@@ -334,6 +371,7 @@ export const useAppStore = create<AppStore>()(
         intents: state.intents,
         intentDone: state.intentDone,
         reviewSeen: state.reviewSeen,
+        dayCloses: state.dayCloses,
         intentPresets: state.intentPresets,
         customPrompts: state.customPrompts,
         habits: state.habits,
@@ -388,6 +426,12 @@ export const useAppStore = create<AppStore>()(
           raw.habits = list
         }
 
+        // v4 -> v5：新增每日收尾记录。老数据里没有这一天，初始化为空。
+        // 不回溯补「已收尾」：那等于替用户在过去每一天都盖了一个章。
+        if (fromVersion < 5) {
+          raw.dayCloses = {}
+        }
+
         console.info(`[store] 数据从 v${fromVersion} 迁移到 v${SCHEMA_VERSION}`)
         return raw as unknown as AppStore
       },
@@ -411,6 +455,7 @@ export const useAppStore = create<AppStore>()(
           intents: has('intents') ? data.intents : current.intents,
           intentDone: has('intentDone') ? data.intentDone : current.intentDone,
           reviewSeen: has('reviewSeen') ? data.reviewSeen : current.reviewSeen,
+          dayCloses: has('dayCloses') ? data.dayCloses : current.dayCloses,
           intentPresets: has('intentPresets') ? data.intentPresets : current.intentPresets,
           customPrompts: has('customPrompts') ? data.customPrompts : current.customPrompts,
           habits: has('habits') ? data.habits : current.habits,

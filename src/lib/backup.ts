@@ -104,7 +104,14 @@ export interface BackupSummary {
 
 type SummarySource = Pick<
   AppData,
-  'habits' | 'checkins' | 'intents' | 'intentDone' | 'intentPresets' | 'customPrompts' | 'rewards'
+  | 'habits'
+  | 'checkins'
+  | 'intents'
+  | 'intentDone'
+  | 'intentPresets'
+  | 'customPrompts'
+  | 'rewards'
+  | 'dayCloses'
 >
 
 /** 指纹只看这几类：这些是用户真正会心疼的数据，改一个字节就值得重备一次 */
@@ -117,7 +124,9 @@ export function summarizeData(data: SummarySource): BackupSummary {
   const recorded = days.filter((k) => (data.checkins[k]?.length ?? 0) > 0)
   // 只写意图、从没打过卡的用户也要有个起点，否则「从未备份」的判断永远等不到第一天
   const intentDays = Object.keys(data.intents ?? {}).sort()
-  const allDays = [...recorded, ...intentDays].sort()
+  // 收尾留言同样是用户亲手写下的内容，只收尾不打卡的那天也算「有记录」
+  const closeDays = Object.keys(data.dayCloses ?? {}).sort()
+  const allDays = [...recorded, ...intentDays, ...closeDays].sort()
   return {
     habitCount: data.habits.filter((h) => !h.archived).length,
     dayCount: recorded.length,
@@ -163,6 +172,7 @@ export function dataDigest(source: DigestSource): string {
     intentPresets: source.intentPresets,
     customPrompts: source.customPrompts,
     rewards: source.rewards,
+    dayCloses: source.dayCloses,
   })
   let hash = 0x811c9dc5
   for (let i = 0; i < payload.length; i += 1) {
@@ -262,9 +272,10 @@ export function useBackupStatus(): BackupStatus {
   const intentPresets = useAppStore((s) => s.intentPresets)
   const customPrompts = useAppStore((s) => s.customPrompts)
   const rewards = useAppStore((s) => s.rewards)
+  const dayCloses = useAppStore((s) => s.dayCloses)
 
   return computeStatus(
-    { habits, checkins, intents, intentDone, intentPresets, customPrompts, rewards },
+    { habits, checkins, intents, intentDone, intentPresets, customPrompts, rewards, dayCloses },
     meta,
   )
 }
